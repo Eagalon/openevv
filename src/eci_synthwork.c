@@ -407,13 +407,18 @@ THIS void stw_addTextToEngine(SynthThread *t, char *text, int32_t len)
 }
 
 /* Everything the romanizer is still holding, pushed through whether or not
-   it makes a whole sentence, and the engine told there is no more coming. */
+   it makes a whole sentence, and the engine told there is no more coming.
+
+   Marked as running for the whole of it: this is where the engine does its
+   work, and a stop asked from another thread has to wait for it to finish
+   rather than reset both underneath the worker. */
 THIS void stw_processRemaining(SynthThread *t)
 {
     char *left = 0;
     int32_t n;
     EngCommand command;
 
+    t->running = 1;
     n = rz_processRemaining(ST_ROMAN(t), &left);
     if (n == -1)
         stb_postRomanizerError(t, 0);
@@ -426,6 +431,7 @@ THIS void stw_processRemaining(SynthThread *t)
 
     if (ST_SAMPLES(t) > 0)
         stb_wordCallback(t, ST_SAMPLES(t));
+    t->running = 0;
 }
 
 /* The engine has finished with some characters. Wind the counts back by that

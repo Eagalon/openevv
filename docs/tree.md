@@ -53,6 +53,12 @@ engines, `compare.sh`, which does one category, and `cases`, the text itself.
 `dll.c` and `dll.py` speak through the library the way something else would,
 once from C and once through ctypes.
 
+`sapi` is the SAPI5 engine: `evv_sapi.c` wraps the library in the COM object
+Windows speech hosts look for, `sapi_tts.h` is a self-contained SAPI5 header
+so no Windows SDK is wanted, and `docs/sapi.md` says how it fits together.
+`test/sapi_smoke.c` drives it without a host. `packaging` has the Inno Setup
+script and the batch installers for it.
+
 `tools` holds three kinds of thing. The lifters turn IBM's objects into the C
 in `lang`: `extract.sh` and `extract-langs.sh` unpack the SDK, `delta-lift.py`
 reads the compiled rules, `delta-emit.py` writes them out as bytecode,

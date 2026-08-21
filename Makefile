@@ -134,6 +134,8 @@ missing: $(OBJECTS)
 clean:
 	@rm -rf $(OBJDIR) $(OBJDIR32) $(OBJDIRWIN) $(OBJDIRWIN32) \
 	        $(BUILD)/eci32.dll $(BUILD)/dlltest32.exe \
+	        $(BUILD)/OpenEloquence.dll $(BUILD)/OpenEloquence32.dll \
+	        $(BUILD)/sapi_smoke.exe \
 	        $(BUILD)/libevv-win32.a $(BUILD)/evv $(BUILD)/probe \
 	        $(BUILD)/evv32 $(BUILD)/probe32 \
 	        $(BUILD)/libevv.a $(BUILD)/libevv32.a $(BUILD)/libevv-win.a \
@@ -256,6 +258,35 @@ $(BUILD)/dlltest.exe: test/dll.c $(BUILD)/eci.dll
 	@$(CCWIN) $(CFLAGSWIN) test/dll.c -static -lversion -o $@
 	@echo "built $@"
 
+# The engine speaking SAPI 5, so that whatever asks Windows for voices --
+# the speech control panel, NVDA through its SAPI driver, PowerShell --
+# hears these eight. sapi/evv_sapi.c is the whole of the difference: one COM
+# class answering ISpTTSEngine, with eight tokens written under
+# SOFTWARE\Microsoft\Speech\Voices\Tokens, each naming the class and saying
+# which of the eight presets it is.
+#
+# `regsvr32 build/OpenEloquence.dll' writes those entries and
+# `regsvr32 /u' takes them back out; both want an administrator.
+# test/sapi_smoke.exe needs none of that: it loads the DLL by hand and drives
+# it through a stand-in site, which is how the audio is proved before any
+# registry is touched.
+#
+# uuid and ole32 are COM bookkeeping: the interface ids IUnknown answers to,
+# and CoTaskMemAlloc for the strings handed out with events.
+.PHONY: sapi sapi-test
+sapi: $(BUILD)/OpenEloquence.dll
+
+$(BUILD)/OpenEloquence.dll: sapi/evv_sapi.c $(BUILD)/libevv-win.a
+	@$(CCWIN) $(CFLAGSWIN) -shared sapi/evv_sapi.c \
+	   $(BUILD)/libevv-win.a $(LDFLAGSWIN) -luuid -lole32 -o $@
+	@echo "built $@"
+
+sapi-test: $(BUILD)/sapi_smoke.exe
+
+$(BUILD)/sapi_smoke.exe: test/sapi_smoke.c $(BUILD)/OpenEloquence.dll
+	@$(CCWIN) $(CFLAGSWIN) test/sapi_smoke.c $(LDFLAGSWIN) -lole32 -luuid -o $@
+	@echo "built $@"
+
 $(OBJDIRWIN)/speak.res: win/speak.rc win/speak.h
 	@mkdir -p $(OBJDIRWIN)
 	@$(WINDRES) -I win win/speak.rc -O coff -o $@
@@ -298,6 +329,17 @@ $(BUILD)/eci32.dll: win/eci_api.c $(OBJDIRWIN32)/eci.res $(BUILD)/libevv-win32.a
 
 $(BUILD)/dlltest32.exe: test/dll.c $(BUILD)/eci32.dll
 	@$(CCWIN32) $(CFLAGSWIN32) test/dll.c -static -lversion -o $@
+	@echo "built $@"
+
+# The SAPI voice thirty-two bit, for a host that loads the thirty-two bit
+# view of the registry. Same wrapper, same registry names: each bitness
+# registers into its own view, and both can live on one machine.
+.PHONY: sapi32
+sapi32: $(BUILD)/OpenEloquence32.dll
+
+$(BUILD)/OpenEloquence32.dll: sapi/evv_sapi.c $(BUILD)/libevv-win32.a
+	@$(CCWIN32) $(CFLAGSWIN32) -shared sapi/evv_sapi.c \
+	   $(BUILD)/libevv-win32.a $(LDFLAGSWIN32) -luuid -lole32 -o $@
 	@echo "built $@"
 
 $(OBJDIRWIN32)/eci.res: win/eci.rc

@@ -123,9 +123,14 @@ struct SynthThread {
     void         *filters;         /* 0x3d4, FilterManager, may be 0 */
     void         *filter;          /* 0x3d8, the one filter in play */
     uint8_t       fresh;           /* 0x3dc, nothing said to the engine since
-                                      the reset */
+                                       the reset */
     uint8_t       pad_3dd[3];
     int32_t       told_cat;        /* 0x3e0, told the caller we went concat */
+    /* Ours, past anything the original had: one while a message that works
+       the romanizer or the engine is being run, so that a stop from the
+       caller's thread waits for the worker to come back rather than pulling
+       both out from under it. */
+    volatile int32_t running;
 };
 
 #define ST_ENGINES(t)   (&(t)->engines)

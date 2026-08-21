@@ -187,6 +187,18 @@ not implement, and `eciGeneratePhonemes` and the dictionary find, lookup and
 update calls, which exist inside the engine with no public wrapper yet. A
 caller asking for one of those gets nothing rather than something wrong.
 
+## SAPI5
+
+`make sapi` builds `build/OpenEloquence.dll`, which is the same engine again
+behind a COM object implementing `ISpTTSEngine`, so that any Windows speech
+host -- SAPI's own voices list, NVDA, screen readers generally -- can pick
+one of eight "Open Eloquence" voices without knowing anything about ECI.
+`sapi/evv_sapi.c` is the wrapper and `docs/sapi.md` is the account of it;
+`sapi/sapi_tts.h` is a self-contained SAPI5 header, so this build wants no
+Windows SDK either. `make sapi-test` builds `build/sapi_smoke.exe`, which
+drives the object through its paces without a host, and `make sapi32`
+builds the thirty-two bit engine for thirty-two bit hosts.
+
 ## Getting IBM's objects
 
 None of this is needed to build. It is needed for two things: the comparison
