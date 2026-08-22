@@ -126,11 +126,6 @@ struct SynthThread {
                                        the reset */
     uint8_t       pad_3dd[3];
     int32_t       told_cat;        /* 0x3e0, told the caller we went concat */
-    /* Ours, past anything the original had: one while a message that works
-       the romanizer or the engine is being run, so that a stop from the
-       caller's thread waits for the worker to come back rather than pulling
-       both out from under it. */
-    volatile int32_t running;
 };
 
 #define ST_ENGINES(t)   (&(t)->engines)

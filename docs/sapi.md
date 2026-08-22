@@ -20,6 +20,7 @@ The DLL links the same objects as `eci.dll` plus the wrapper itself.
     ./build/sapi_smoke.exe -v 3            # voice three
     ./build/sapi_smoke.exe -r 6            # rate six
     ./build/sapi_smoke.exe --abort-after 2 # site asks for abort after two writes
+    ./build/sapi_smoke.exe --stress 200    # speak and cut short, two hundred times
 
 The harness drives the COM object directly, with a mock site that collects
 the samples and can ask for an abort part way through. It answers zero when
@@ -35,6 +36,17 @@ all of these hold, and names the one that did not otherwise:
 With `--abort-after n` the first run is cut short and the second is left
 alone, so the pass says both that the abort was obeyed and that the engine
 still speaks afterwards.
+
+`--stress N` is the one that found the crash a screen reader hits: N runs on
+the one engine, most of them cut short at a different point, which is what
+NVDA does on every keystroke. Audio is not checked there -- most runs are
+meant to be truncated -- only that the engine is still alive and answering.
+Two runs and one abort never reached it; ten stress runs did.
+
+An access violation anywhere in the harness now names the module it happened
+in and how far into it, because gdb here cannot enumerate modules and a bare
+"Segmentation fault" says nothing. `nm` on the DLL turns that offset into a
+function name.
 
 Neither check is redundant: a peak alone would not notice a header riding in
 front of the samples, since the samples themselves are still loud, and a
@@ -62,9 +74,13 @@ and skip both stop the run, skip answering `CompleteSkip` with the items
 asked for. Samples arrive in the callback, which writes them to the site as
 `SPDF_Speech` data at eleven kilohertz, mono, sixteen bits.
 
-Aborting mid-speech is the one place the engine needed changing; see
-`sapi-lessons.md` lesson seventeen for what raced and why `stl_stop` now
-waits for the worker.
+Aborting mid-speech is the one place the engine needed changing: `stl_stop`
+was resetting the engine and stopping the romanizer before it suspended the
+worker's queue, so a cancel landing mid-utterance tore both out from under
+the thread using them. It suspends first now. A screen reader cancels on
+nearly every keystroke, which is what found it; `sapi_smoke.exe --stress N`
+is that shape, and it reproduces the old crash in under ten runs. See
+`sapi-lessons.md` lessons seventeen and twenty-three.
 
 ## Installing
 

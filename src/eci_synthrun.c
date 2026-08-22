@@ -417,13 +417,10 @@ THIS void addParamRun(SynthThread *t, char *text, uint32_t len, int32_t seq)
     void *lock;
 
     (void)seq;
-    t->running = 1;
     if (rz_addParam(ST_ROMAN(t), text, (int32_t)len) == -1) {
         stb_postRomanizerError(t, 0);
-        t->running = 0;
         return;
     }
-    t->running = 0;
     lock = ST_LOCK(t);
     sy_mutexWait(lock, -1);
     ST_PENDING(t) -= (int32_t)len;

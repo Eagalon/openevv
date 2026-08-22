@@ -133,20 +133,14 @@ Two facts explain it:
   exactly that. Nothing upstream exercises stop mid-speech, so this was
   never hit before x64 Windows testing.
 
-Fix (three small pieces, all in our C):
+The first fix was wrong, and lesson 23 is what it cost. It added a
+`SynthThread.running` flag set around `stw_processRemaining` and
+`addParamRun`, with `stl_stop` spinning on it and draining the app queue.
+That is gone. What replaced it is in lesson 23; do not put it back.
 
-1. `SynthThread.running` (new field past the original's layout): set around
-   `stw_processRemaining` and `addParamRun`'s romanizer call.
-2. `stl_stop` waits for `running == 0` before tearing down -- but must DRAIN
-   the app queue while waiting (`aq_poll(ST_APP(t))` in the loop), or the
-   undelivered samples jam the queue and hold the worker inside the engine
-   forever, and the wait times out into the same crash.
-3. The wrapper keeps pumping after an abort so the engine winds down before
-   `Speak` returns; bounded, since abort makes each callback say stop.
-
-After the fix: abort delivers exactly the samples written before the abort,
-`Speak` returns promptly, the next utterance works, and hash.sh still says
-the samples are what they have always been.
+The wrapper's part still stands: it keeps pumping after an abort so the
+engine winds down before `Speak` returns, bounded, since abort makes each
+callback say stop.
 
 ## 18. Write takes samples, and only samples
 
@@ -211,3 +205,46 @@ cumulative byte count, which run one had already made nonzero.
 
 Per-run assertions need per-run state. Re-arm the site for each run, and
 measure each run against where the last one ended.
+
+## 23. The stop was not racing the worker, it was out of order
+
+The flag from lesson 17 did not hold. NVDA cancels speech on nearly every
+keystroke, and after five to ten utterances the synth host died with a read
+of address zero inside the delta machine -- `ventproc`, `vinitloc_new`, a
+different function each time, all of them dereferencing an arena reference
+that had been zeroed under them. `--stress`, which speaks and cuts short
+hundreds of times on the one engine, reproduces it in under ten runs; two
+runs and a single abort never came close.
+
+Three things were wrong with the flag:
+
+- **It covered two functions.** Any of the `run_*` message handlers can
+  reach the engine or the romanizer, not just those two.
+- **It was check-then-act.** Nothing stopped the worker starting a new
+  message in the moment between `stl_stop` reading zero and acting on it.
+- **It gave up.** After 5000 waits it tore everything down regardless,
+  which is the crash it was written to prevent.
+
+None of that was the real problem. `stl_stop` was resetting the engine and
+calling `rz_stop` *before* the `stm_qtSuspend(t)` further down -- and
+`stm_qtSuspend` is the engine's own primitive for exactly this: "stop the
+thread taking anything else off its queue, and wait until the one it is on
+has been finished with". The teardown was simply happening in the wrong
+order, and no flag could have fixed that.
+
+The fix is two calls at the top of `stl_stop` and nothing else:
+
+    app->vt->suspend(app);   /* the worker can no longer block posting */
+    stm_qtSuspend(t);        /* and now waits out its current message */
+
+The order matters both ways. Suspending the answer queue first is what
+makes the second call finite: `q_postMessage` on a suspended queue answers
+`POST_REFUSED` at once instead of queueing and waiting, so a worker part way
+through handing samples over runs to the end of its message rather than
+blocking forever. That is also why the `aq_poll` drain is gone -- suspending
+the queue already solves what the drain was invented for.
+
+The lesson under the lesson: when a fix needs a new flag to guard something
+the codebase already has a primitive for, the fix is probably in the wrong
+place. Look for the existing primitive and ask why it is not being called
+early enough.

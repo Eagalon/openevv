@@ -204,8 +204,6 @@ extern THIS void es_paramFromEngine(void *s, int32_t which, int32_t value)
     MANGLED("?paramFromEngine@ECIstate@@QAEXJJ@Z");
 extern THIS void stm_pauseMessageQueue(void *a, int32_t how)
     MANGLED("?pauseMessageQueue@ETIappMessageQueue@@QAEXH@Z");
-extern THIS int32_t aq_poll(void *q)
-    MANGLED("?poll@ETIappMessageQueue@@QAEJXZ");
 
 extern THIS int16_t snd_getStatusDirect(void *s)
     MANGLED("?getStatusDirect@SoundThread@@QAEFXZ");
@@ -541,17 +539,24 @@ THIS int32_t stl_stop(SynthThread *t)
     int32_t rc = OK;
     void *lock;
     AppQueue *app;
-    int waits = 0;
 
-    /* The worker may be in the middle of making sound; every step below
-       would pull the ground out from under it. Wait for it to come back
-       between messages, and keep the answer queue empty while waiting, or
-       the samples it goes on making would jam the queue and hold it inside
-       the engine for good. Not forever, all the same. */
-    while (t->running && waits++ < 5000) {
-        aq_poll(ST_APP(t));
-        Sleep(1);
-    }
+    /* Park the worker before a single thing below is pulled out from under
+       it. Two steps, and the order is the whole of it.
+
+       The answer queue first: with it suspended the worker can no longer
+       block handing samples over, because a post to a suspended queue is
+       refused there and then rather than queued and waited on. That is what
+       makes the second step finite.
+
+       Then its own queue, which throws away whatever else was waiting and
+       waits for the message it is on to reach its end. After that the
+       worker is between messages and cannot start another, which is the
+       only reason anything below is safe: the engine reset and the
+       romanizer stop are exactly what it would have been in the middle of
+       using. */
+    app = (AppQueue *)ST_APP(t);
+    app->vt->suspend(app);
+    stm_qtSuspend(t);
 
     if (ST_SOUND(t)) {
         int16_t status;
@@ -579,10 +584,7 @@ THIS int32_t stl_stop(SynthThread *t)
     }
     sy_mutexRelease(lock);
 
-    app = (AppQueue *)ST_APP(t);
-    app->vt->suspend(app);
     rz_stop(ST_ROMAN(t));
-    stm_qtSuspend(t);
     rz_clear(ST_ROMAN(t));
 
     if (ST_ENGINE(t)) {

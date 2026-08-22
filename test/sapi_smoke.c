@@ -59,6 +59,35 @@ static const GUID SPDFID_WaveFormatEx_ = EVV_GUID(0xc31adbae, 0x527f, 0x4ff5,
    can carry. */
 #define FRAME 2048
 
+/* A crash here used to be a bare "Segmentation fault" and nothing else --
+   gdb on this machine cannot enumerate modules, so a backtrace is question
+   marks. This says which module faulted and how far into it, which is all
+   that is needed to name the function with nm. */
+static LONG CALLBACK say_where(EXCEPTION_POINTERS *ep)
+{
+    void *addr = ep->ExceptionRecord->ExceptionAddress;
+    HMODULE mod = NULL;
+    char name[MAX_PATH] = "?";
+
+    if (ep->ExceptionRecord->ExceptionCode != EXCEPTION_ACCESS_VIOLATION)
+        return EXCEPTION_CONTINUE_SEARCH;
+
+    GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                       GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                       (LPCSTR)addr, &mod);
+    if (mod != NULL)
+        GetModuleFileNameA(mod, name, sizeof name);
+    fprintf(stderr, "\nsmoke: ACCESS VIOLATION %s 0x%p\n",
+            ep->ExceptionRecord->ExceptionInformation[0] ? "writing" : "reading",
+            (void *)ep->ExceptionRecord->ExceptionInformation[1]);
+    fprintf(stderr, "smoke: at 0x%p in %s\n", addr, name);
+    if (mod != NULL)
+        fprintf(stderr, "smoke: that is +0x%llX into the module\n",
+                (unsigned long long)((char *)addr - (char *)mod));
+    fflush(stderr);
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
 /* ---- the fake site ------------------------------------------------------ */
 
 typedef struct MockSite {
@@ -526,6 +555,7 @@ int main(int argc, char **argv)
     int voice = 1;
     long rate = 0;
     int abort_after = -1;
+    int stress = 0;
     HMODULE lib;
     get_class_object_fn get_class_object;
     IClassFactory *factory = NULL;
@@ -551,6 +581,8 @@ int main(int argc, char **argv)
             rate = atol(argv[++i]);
         else if (strcmp(argv[i], "--abort-after") == 0 && i + 1 < argc)
             abort_after = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--stress") == 0 && i + 1 < argc)
+            stress = atoi(argv[++i]);
         else if (strcmp(argv[i], "--text") == 0 && i + 1 < argc) {
             size_t chars;
             wchar_t *w;
@@ -594,6 +626,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    AddVectoredExceptionHandler(1, say_where);
+
     ms = calloc(1, sizeof *ms);
     if (ms == NULL)
         return 1;
@@ -623,6 +657,42 @@ int main(int argc, char **argv)
     frag.pTextStart = text;
     frag.ulTextLen = (ULONG)wcslen(text);
     fmtid = SPDFID_WaveFormatEx_;
+
+    /* What a screen reader does: speak, cut it off part way, speak again,
+       hundreds of times on the one engine, cutting at a different point
+       each time so the stop lands in a different place in the engine's
+       work. Two runs never reached the race; this is the shape that does.
+       Audio is not checked here -- most runs are meant to be cut short --
+       only that the engine is still alive and answering. */
+    if (stress > 0) {
+        int i;
+
+        for (i = 0; i < stress; i++) {
+            ms->bytes = 0;
+            ms->writes_before_abort = (i % 7 == 0) ? -1 : (i % 13) + 1;
+            hr = engine->lpVtbl->Speak(engine, SPF_DEFAULT, &fmtid, NULL,
+                                       &frag, site);
+            if (hr != S_OK) {
+                fprintf(stderr, "smoke: stress run %d refused (0x%08lx)\n",
+                        i + 1, (unsigned long)hr);
+                failed = 1;
+                break;
+            }
+            if ((i + 1) % 25 == 0) {
+                printf("stress: %d runs\n", i + 1);
+                fflush(stdout);
+            }
+        }
+        if (!failed)
+            printf("stress: %d runs, engine still answering\n", stress);
+        site->lpVtbl->Release(site);
+        token->vt.lpVtbl->Release(&token->vt);
+        engine->lpVtbl->Release(engine);
+        FreeLibrary(lib);
+        free(ms->audio);
+        free(ms);
+        return failed ? 1 : 0;
+    }
 
     /* Two runs on the one engine: the second says whether an instance that
        has already spoken can be asked again, which is how SAPI uses it. */
