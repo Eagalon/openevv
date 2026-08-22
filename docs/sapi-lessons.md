@@ -147,3 +147,67 @@ Fix (three small pieces, all in our C):
 After the fix: abort delivers exactly the samples written before the abort,
 `Speak` returns promptly, the next utterance works, and hash.sh still says
 the samples are what they have always been.
+
+## 18. Write takes samples, and only samples
+
+The engine prepended a `WAVEFORMATEX` to every `ISpTTSEngineSite::Write`, on
+the theory that a buffer should say what format it is in. It should not. The
+format is settled once, before any audio moves, by `GetOutputFormat` -- which
+this engine already answered correctly with 11025/16/mono. A host takes the
+whole buffer as PCM, so those eighteen bytes were read as nine samples of
+`1, 1, 11025, 0, 22050, 0, 2, 16, 0`: an impulse every 2048 samples, which at
+this rate is a click every 186 milliseconds, forever.
+
+The rule: nothing rides along with the audio. If a site needs to know the
+format, it asks.
+
+## 19. A mock that shares the wrapper's assumption proves nothing
+
+The reason lesson 18 survived to be shipped is that `test/sapi_smoke.c`
+stripped exactly the eighteen bytes the wrapper wrote. Engine and harness
+agreed with each other and with nothing else, and the harness reported a pass.
+
+A stand-in for something must not be written from the same understanding as
+the thing it is standing in for. Where the real component's behaviour is the
+question, encode the *contract* -- here, "a Write is whole samples and no more
+than one frame of them", which catches the header by its length -- not a
+mirror of what our code happens to do.
+
+## 20. Bytes arriving is not audio arriving
+
+The same harness also called a run good if any bytes reached the site. Every
+sample in `build/smoke.wav` was zero -- 76846 of them -- and it passed twice
+and was committed as working.
+
+Silence is the failure mode a TTS wrapper is most likely to have and the one a
+byte count cannot see. Check the peak. `test/sapi_smoke.c` now fails under
+`QUIET_FLOOR`, and the two checks together are what catch lessons 18 and 21:
+peak alone misses the header (the real samples are still loud), and the length
+check alone misses silence.
+
+## 21. The engine's volume is not a percentage
+
+`V_VOLUME` runs to 65535, and a voice carries about 60260 of it. SAPI's
+volume, from `GetVolume` and `SPVSTATE.Volume`, is 0..100. Writing the
+percentage straight through asked for a hundred parts in sixty thousand: not
+quiet speech but samples that round to exact zeros, which is why the symptom
+was silence rather than something faint.
+
+`vc_getVoiceParam(h, 0, V_VOLUME)` before touching it is how to find the
+voice's own level; a SAPI percentage is taken against that, the same way speed
+and pitch are taken against `base_speed` and `base_pitch`. Check the scale of
+every parameter that crosses between SAPI and the engine -- speed is words a
+minute and pitch is hertz only because `P_REAL_WORLD_UNITS` is on, and volume
+is on no such scale at all.
+
+## 22. Latching state in a mock hides the case it was built for
+
+`--abort-after n` decremented `writes_before_abort` to nought and left it
+there, and `GetActions` aborts whenever it is nought. So the second run --
+the one that asks whether an engine that was aborted still speaks, which is
+the entire point of lesson 17 -- aborted on its first pump and delivered
+nothing. It went unnoticed because the pass check looked at the site's
+cumulative byte count, which run one had already made nonzero.
+
+Per-run assertions need per-run state. Re-arm the site for each run, and
+measure each run against where the last one ended.

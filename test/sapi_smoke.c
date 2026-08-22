@@ -50,6 +50,15 @@ static const GUID SPDFID_WaveFormatEx_ = EVV_GUID(0xc31adbae, 0x527f, 0x4ff5,
 
 #define RATE 11025
 
+/* Speech off this engine peaks in the twenties of thousands; the first two
+   thousand samples of test/dll.c's output already reach 15261. Anything
+   under this is not quiet speech, it is no speech. */
+#define QUIET_FLOOR 1000
+
+/* The frame the wrapper hands the library, and so the most any one Write
+   can carry. */
+#define FRAME 2048
+
 /* ---- the fake site ------------------------------------------------------ */
 
 typedef struct MockSite {
@@ -60,6 +69,7 @@ typedef struct MockSite {
     size_t cap;
     long rate;
     int writes_before_abort;
+    int bad_writes;
     int events_started;
     int events_ended;
 } MockSite;
@@ -136,27 +146,58 @@ static HRESULT STDMETHODCALLTYPE site_write(ISpTTSEngineSite *self_,
 {
     MockSite *s = (MockSite *)self_;
 
-    /* Every buffer leads with the format it is speaking in; past it are the
-       samples this whole exercise is here to collect. */
-    if (cb > sizeof(WAVEFORMATEX)) {
-        ULONG samples = cb - (ULONG)sizeof(WAVEFORMATEX);
+    /* What arrives is samples, all of it. A site that skipped a header here
+       would agree with an engine that wrote one and the pair would sound
+       fine to each other and to nothing else; that is exactly the bug this
+       harness failed to see.
 
-        if (s->bytes + samples > s->cap) {
-            s->cap = (s->bytes + samples) * 2 + 65536;
+       So say what a buffer of samples has to look like. Whole samples, and
+       never more than the frame the engine asked the library for: anything
+       bolted on in front -- a WAVEFORMATEX is eighteen bytes -- pushes the
+       count past the frame and is caught here rather than in someone's
+       ears. Peak alone would not find it; the real samples are still loud. */
+    if (cb % 2 != 0 || cb > (ULONG)FRAME * 2) {
+        fprintf(stderr, "smoke: Write of %lu bytes is not %d whole samples or "
+                        "fewer -- something is riding along with the audio\n",
+                (unsigned long)cb, FRAME);
+        s->bad_writes++;
+    }
+    if (cb > 0) {
+        if (s->bytes + cb > s->cap) {
+            s->cap = (s->bytes + cb) * 2 + 65536;
             s->audio = realloc(s->audio, s->cap);
             if (s->audio == NULL) {
                 fprintf(stderr, "smoke: out of memory\n");
                 exit(1);
             }
         }
-        memcpy(s->audio + s->bytes, (const BYTE *)buf + sizeof(WAVEFORMATEX),
-               samples);
-        s->bytes += samples;
+        memcpy(s->audio + s->bytes, buf, cb);
+        s->bytes += cb;
     }
     if (s->writes_before_abort > 0)
         s->writes_before_abort--;
     *written = cb;
     return S_OK;
+}
+
+/* The loudest sample in a stretch of the collected audio. This is the whole
+   difference between "the site was written to" and "the engine spoke": a run
+   that reports tens of thousands of bytes and a peak of nought delivered
+   digital silence, which is what this harness used to call a pass. */
+static int peak_of(const unsigned char *p, size_t bytes)
+{
+    size_t i;
+    int peak = 0;
+
+    for (i = 0; i + 1 < bytes; i += 2) {
+        int v = (int)(short)((unsigned)p[i] | ((unsigned)p[i + 1] << 8));
+
+        if (v < 0)
+            v = -v;
+        if (v > peak)
+            peak = v;
+    }
+    return peak;
 }
 
 static HRESULT STDMETHODCALLTYPE site_rate(ISpTTSEngineSite *self_, long *rate)
@@ -586,6 +627,15 @@ int main(int argc, char **argv)
     /* Two runs on the one engine: the second says whether an instance that
        has already spoken can be asked again, which is how SAPI uses it. */
     for (runs = 0; runs < 2 && !failed; runs++) {
+        size_t before = ms->bytes;
+        int peak;
+
+        /* Only the first run aborts. Left latched at nought the site would
+           abort every run after it on its first pump, and the second run --
+           the one that asks whether an aborted engine still speaks, which is
+           the whole point of the abort case -- could never say anything. */
+        ms->writes_before_abort = runs == 0 ? abort_after : -1;
+
         hr = engine->lpVtbl->Speak(engine, SPF_DEFAULT, &fmtid, NULL,
                                    &frag, site);
         if (hr != S_OK) {
@@ -594,17 +644,30 @@ int main(int argc, char **argv)
             failed = 1;
             break;
         }
-        if (ms->bytes == 0) {
+        if (ms->bytes == before) {
             fprintf(stderr, "smoke: run %d said nothing\n", runs + 1);
             failed = 1;
             break;
         }
-        printf("run %d: %lu bytes of audio\n", runs + 1,
-               (unsigned long)ms->bytes);
+        peak = peak_of(ms->audio + before, ms->bytes - before);
+        printf("run %d: %lu bytes of audio, peak %d\n", runs + 1,
+               (unsigned long)(ms->bytes - before), peak);
+        if (peak < QUIET_FLOOR) {
+            fprintf(stderr, "smoke: run %d is silence -- peak %d, and speech "
+                            "reaches thousands. Bytes arriving is not audio "
+                            "arriving.\n", runs + 1, peak);
+            failed = 1;
+            break;
+        }
     }
 
     if (!failed && !write_wav(out, ms->audio, ms->bytes)) {
         fprintf(stderr, "smoke: cannot write %s\n", out);
+        failed = 1;
+    }
+    if (!failed && ms->bad_writes != 0) {
+        fprintf(stderr, "smoke: %d writes were not plain samples\n",
+                ms->bad_writes);
         failed = 1;
     }
     if (!failed && (ms->events_started != runs || ms->events_ended != runs)) {

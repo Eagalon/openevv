@@ -23,7 +23,22 @@ The DLL links the same objects as `eci.dll` plus the wrapper itself.
 
 The harness drives the COM object directly, with a mock site that collects
 the samples and can ask for an abort part way through. It answers zero when
-every run produced audio and the abort path came back alive.
+all of these hold, and names the one that did not otherwise:
+
+  * every run delivered audio, and that audio has a peak amplitude in the
+    thousands -- speech off this engine reaches about twenty thousand, and a
+    run of bytes that are all zero is the failure this check exists for;
+  * every `Write` was whole samples and no more than one frame of them, which
+    is what catches anything prepended to the audio;
+  * a stream started and ended for each run.
+
+With `--abort-after n` the first run is cut short and the second is left
+alone, so the pass says both that the abort was obeyed and that the engine
+still speaks afterwards.
+
+Neither check is redundant: a peak alone would not notice a header riding in
+front of the samples, since the samples themselves are still loud, and a
+length check alone would not notice silence.
 
 For the whole stack, register and speak through Windows itself:
 

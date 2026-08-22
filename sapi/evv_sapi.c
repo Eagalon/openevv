@@ -133,6 +133,7 @@ struct EvvEngine {
     volatile LONG      speaking;
     int                base_speed;
     int                base_pitch;
+    int                base_volume;
     ULONGLONG          audio_offset;
 };
 
@@ -231,13 +232,13 @@ static void fill_wfx(WAVEFORMATEX *w)
     w->cbSize          = 0;
 }
 
-/* Every buffer handed to Write carries its format ahead of the samples; that
-   is how the site knows what it is being handed without asking first. */
+/* Write takes the samples and nothing else. What format they are in was
+   settled once, by GetOutputFormat, before the site was ever handed over;
+   a WAVEFORMATEX in front of every buffer is read as samples and heard as a
+   click each time one goes by. */
 static HRESULT write_audio(ISpTTSEngineSite *site, const short *samples,
                            ULONG count, ULONGLONG *offset)
 {
-    BYTE buf[sizeof(WAVEFORMATEX) + FRAME * 2];
-    WAVEFORMATEX wfx;
     ULONG written = 0;
 
     if (count == 0)
@@ -245,12 +246,7 @@ static HRESULT write_audio(ISpTTSEngineSite *site, const short *samples,
     if (count > FRAME)
         count = FRAME;
 
-    fill_wfx(&wfx);
-    memcpy(buf, &wfx, sizeof wfx);
-    memcpy(buf + sizeof wfx, samples, count * 2);
-
-    if (site->lpVtbl->Write(site, buf, sizeof wfx + count * 2,
-                            &written) != S_OK)
+    if (site->lpVtbl->Write(site, samples, count * 2, &written) != S_OK)
         return E_FAIL;
     *offset += (ULONGLONG)count * 2;
     return S_OK;
@@ -320,12 +316,17 @@ static HRESULT engine_build(EvvEngine *e)
         return E_FAIL;
     }
 
-    e->base_speed = vc_getVoiceParam(h, 0, V_SPEED);
-    e->base_pitch = vc_getVoiceParam(h, 0, V_PITCH);
+    e->base_speed  = vc_getVoiceParam(h, 0, V_SPEED);
+    e->base_pitch  = vc_getVoiceParam(h, 0, V_PITCH);
+    e->base_volume = vc_getVoiceParam(h, 0, V_VOLUME);
     if (e->base_speed <= 0)
         e->base_speed = 180;
     if (e->base_pitch <= 0)
         e->base_pitch = 65;
+    /* Not a percentage: what the voices actually carry is around 60260 out
+       of 65535, and that is the number a SAPI percentage is taken against. */
+    if (e->base_volume <= 0)
+        e->base_volume = 60260;
 
     /* The callback first: the engine will not take a sample buffer until it
        has somewhere to report the samples to. */
@@ -472,6 +473,11 @@ static HRESULT STDMETHODCALLTYPE eng_speak(ISpTTSEngine *self_, DWORD flags,
             if (hz > 400.0)
                 hz = 400.0;
 
+            /* SAPI's volume is a percentage. The engine's is not: V_VOLUME
+               runs to 65535 and a voice sits around 60260 of it, so writing
+               the percentage straight in asks for a hundred parts in sixty
+               thousand -- silence, and rounded to exact zeros at that. It is
+               a percentage OF the voice's own volume. */
             vol = (int)f->State.Volume;
             if (vol == 0)
                 vol = (int)volume;
@@ -479,6 +485,7 @@ static HRESULT STDMETHODCALLTYPE eng_speak(ISpTTSEngine *self_, DWORD flags,
                 vol = 0;
             if (vol > 100)
                 vol = 100;
+            vol = (int)((double)e->base_volume * (double)vol / 100.0 + 0.5);
 
             vc_setVoiceParam(e->h, 0, V_SPEED, (int32_t)(wpm + 0.5));
             vc_setVoiceParam(e->h, 0, V_PITCH, (int32_t)(hz + 0.5));
