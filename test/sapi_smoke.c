@@ -162,11 +162,20 @@ static HRESULT STDMETHODCALLTYPE site_event_interest(ISpTTSEngineSite *self_,
     return S_OK;
 }
 
+LARGE_INTEGER g_abort_at;
+LARGE_INTEGER g_first_write;
+int g_sink_delay_ms;
+
 static DWORD STDMETHODCALLTYPE site_actions(ISpTTSEngineSite *self_)
 {
     MockSite *s = (MockSite *)self_;
 
-    return s->writes_before_abort == 0 ? SPVES_ABORT : SPVES_CONTINUE;
+    if (s->writes_before_abort == 0) {
+        if (g_abort_at.QuadPart == 0)
+            QueryPerformanceCounter(&g_abort_at);
+        return SPVES_ABORT;
+    }
+    return SPVES_CONTINUE;
 }
 
 static HRESULT STDMETHODCALLTYPE site_write(ISpTTSEngineSite *self_,
@@ -185,6 +194,13 @@ static HRESULT STDMETHODCALLTYPE site_write(ISpTTSEngineSite *self_,
        bolted on in front -- a WAVEFORMATEX is eighteen bytes -- pushes the
        count past the frame and is caught here rather than in someone's
        ears. Peak alone would not find it; the real samples are still loud. */
+    if (g_first_write.QuadPart == 0)
+        QueryPerformanceCounter(&g_first_write);
+    /* A real sink plays what it is given and refuses more until there is
+       room, so Write blocks. The mock took everything at once, which is the
+       one thing a host never does. */
+    if (g_sink_delay_ms > 0)
+        Sleep((DWORD)g_sink_delay_ms);
     if (cb % 2 != 0 || cb > (ULONG)FRAME * 2) {
         fprintf(stderr, "smoke: Write of %lu bytes is not %d whole samples or "
                         "fewer -- something is riding along with the audio\n",
@@ -583,6 +599,8 @@ int main(int argc, char **argv)
             abort_after = atoi(argv[++i]);
         else if (strcmp(argv[i], "--stress") == 0 && i + 1 < argc)
             stress = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--sink-delay") == 0 && i + 1 < argc)
+            g_sink_delay_ms = atoi(argv[++i]);
         else if (strcmp(argv[i], "--text") == 0 && i + 1 < argc) {
             size_t chars;
             wchar_t *w;
@@ -667,24 +685,76 @@ int main(int argc, char **argv)
     if (stress > 0) {
         int i;
 
+        double worst_cut = 0.0, worst_full = 0.0, sum_cut = 0.0;
+        double worst_lead = 0.0, sum_lead = 0.0;
+        int n_cut = 0, n_lead = 0;
+        LARGE_INTEGER freq, t0, t1;
+
+        QueryPerformanceFrequency(&freq);
         for (i = 0; i < stress; i++) {
+            int cut = (i % 7 != 0);
+            double ms_taken;
+
             ms->bytes = 0;
-            ms->writes_before_abort = (i % 7 == 0) ? -1 : (i % 13) + 1;
+            ms->writes_before_abort = cut ? (i % 13) + 1 : -1;
+            g_abort_at.QuadPart = 0;
+            g_first_write.QuadPart = 0;
+            QueryPerformanceCounter(&t0);
             hr = engine->lpVtbl->Speak(engine, SPF_DEFAULT, &fmtid, NULL,
                                        &frag, site);
+            QueryPerformanceCounter(&t1);
+            ms_taken = (double)(t1.QuadPart - t0.QuadPart) * 1000.0
+                     / (double)freq.QuadPart;
             if (hr != S_OK) {
                 fprintf(stderr, "smoke: stress run %d refused (0x%08lx)\n",
                         i + 1, (unsigned long)hr);
                 failed = 1;
                 break;
             }
+            /* A cut-short run is what a keystroke does. How long it takes to
+               come back is what a person feels as lag, so it is the number
+               worth watching, not the total. */
+            if (cut) {
+                /* The number that matters: from the site demanding an abort
+                   to Speak coming back. Everything before that is the engine
+                   doing work that was actually asked for. */
+                double since = g_abort_at.QuadPart
+                    ? (double)(t1.QuadPart - g_abort_at.QuadPart) * 1000.0
+                      / (double)freq.QuadPart : -1.0;
+
+                sum_cut += since;
+                n_cut++;
+                if (since > worst_cut) worst_cut = since;
+                if (g_first_write.QuadPart) {
+                    double lead = (double)(g_first_write.QuadPart - t0.QuadPart)
+                                * 1000.0 / (double)freq.QuadPart;
+
+                    sum_lead += lead;
+                    n_lead++;
+                    if (lead > worst_lead) worst_lead = lead;
+                    if (lead > 60.0)
+                        printf("  run %d: %.0f ms before the first sample\n",
+                               i + 1, lead);
+                }
+                if (since > 20.0)
+                    printf("  run %d: %.0f ms to come back after abort\n",
+                           i + 1, since);
+            } else if (ms_taken > worst_full) {
+                worst_full = ms_taken;
+            }
             if ((i + 1) % 25 == 0) {
                 printf("stress: %d runs\n", i + 1);
                 fflush(stdout);
             }
         }
-        if (!failed)
+        if (!failed) {
             printf("stress: %d runs, engine still answering\n", stress);
+            printf("after abort: mean %.1f ms, worst %.0f ms (%d cancels)\n",
+                   n_cut ? sum_cut / n_cut : 0.0, worst_cut, n_cut);
+            printf("spoken in full: worst %.0f ms\n", worst_full);
+            printf("before first sample: mean %.1f ms, worst %.0f ms\n",
+                   n_lead ? sum_lead / n_lead : 0.0, worst_lead);
+        }
         site->lpVtbl->Release(site);
         token->vt.lpVtbl->Release(&token->vt);
         engine->lpVtbl->Release(engine);

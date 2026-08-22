@@ -43,6 +43,19 @@ NVDA does on every keystroke. Audio is not checked there -- most runs are
 meant to be truncated -- only that the engine is still alive and answering.
 Two runs and one abort never reached it; ten stress runs did.
 
+It also times what a person actually feels, which is not how long an
+utterance takes but how long the engine takes to react:
+
+  * how long from the site demanding an abort to `Speak` coming back;
+  * how long from `Speak` being called to the first sample reaching the site.
+
+Both sit near twenty milliseconds and neither drifts over hundreds of runs.
+`--sink-delay N` makes the site block N milliseconds a buffer, which is what
+a real one does and the mock otherwise never does; the abort figure does not
+move under it, because an aborted callback stops writing rather than waiting
+its turn. If either number grows, something has been made slower, and these
+are the runs that say so.
+
 An access violation anywhere in the harness now names the module it happened
 in and how far into it, because gdb here cannot enumerate modules and a bare
 "Segmentation fault" says nothing. `nm` on the DLL turns that offset into a
