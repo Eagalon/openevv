@@ -199,6 +199,10 @@ Windows SDK either. `make sapi-test` builds `build/sapi_smoke.exe`, which
 drives the object through its paces without a host, and `make sapi32`
 builds the thirty-two bit engine for thirty-two bit hosts.
 
+`make installer` packs whichever of the two are built into
+`dist/OpenEloquence-SAPI5-setup.exe`, which wants Inno Setup 6; `docs/sapi.md`
+says how it decides and what the batch installers beside it do.
+
 ## Getting IBM's objects
 
 None of this is needed to build. It is needed for two things: the comparison

@@ -140,7 +140,7 @@ clean:
 	        $(BUILD)/evv32 $(BUILD)/probe32 \
 	        $(BUILD)/libevv.a $(BUILD)/libevv32.a $(BUILD)/libevv-win.a \
 	        $(BUILD)/evv.exe $(BUILD)/evvspeak.exe $(BUILD)/eci.dll \
-	        $(BUILD)/eci.ini $(BUILD)/dlltest.exe $(BUILD)/syms.txt
+	        $(BUILD)/eci.ini $(BUILD)/dlltest.exe $(BUILD)/syms.txt 	        dist/OpenEloquence-SAPI5-setup.exe
 
 # Where `make install' puts it. There is nothing else to install: one binary,
 # which reads no file of its own at run time and wants no library but the C
@@ -341,6 +341,19 @@ $(BUILD)/OpenEloquence32.dll: sapi/evv_sapi.c $(BUILD)/libevv-win32.a
 	@$(CCWIN32) $(CFLAGSWIN32) -shared sapi/evv_sapi.c \
 	   $(BUILD)/libevv-win32.a $(LDFLAGSWIN32) -luuid -lole32 -o $@
 	@echo "built $@"
+
+# The installer, built from whatever engines are in build/. The script picks
+# up each word size if its DLL is there, so `make sapi installer' is enough
+# for a sixty-four bit only machine and `make sapi sapi32 installer' puts
+# both in the one setup. Wants Inno Setup; ISCC is where winget leaves it,
+# and ISCC=... overrides that.
+ISCC ?= $(LOCALAPPDATA)/Programs/Inno Setup 6/ISCC.exe
+
+.PHONY: installer
+installer:
+	@mkdir -p dist
+	@"$(ISCC)" packaging/openevv-sapi.iss > /dev/null
+	@echo "built dist/OpenEloquence-SAPI5-setup.exe"
 
 $(OBJDIRWIN32)/eci.res: win/eci.rc
 	@mkdir -p $(OBJDIRWIN32)

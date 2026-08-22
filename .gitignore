@@ -2,6 +2,7 @@
 # The lifted C in lang/ is in the tree, so nothing here is needed to build.
 analysis/
 build/
+dist/
 .wine/
 result
 result-*

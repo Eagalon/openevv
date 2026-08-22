@@ -68,6 +68,23 @@ waits for the worker.
 
 ## Installing
 
-`packaging/openevv-sapi.iss` builds an Inno Setup installer that registers
-the right word size; `packaging/install.bat` and `uninstall.bat` do the same
-job by hand from wherever the DLL sits.
+    make installer     # dist/OpenEloquence-SAPI5-setup.exe
+
+`packaging/openevv-sapi.iss` takes whichever engines are in `build/`: the
+sixty-four bit one, the thirty-two bit one, or both. Nothing has to be edited
+when only one was built, so `make sapi installer` is enough on a machine with
+no thirty-two bit compiler. It wants Inno Setup 6 -- `winget install
+JRSoftware.InnoSetup` -- and `ISCC=...` says where, if it is not where winget
+leaves it. `ISCC /DAppVersion=1.2` sets the version.
+
+`packaging/install.bat` and `uninstall.bat` do the same job by hand from
+wherever the DLLs sit, for a copy that is not being installed. Both need to
+be run as administrator and say so plainly rather than failing quietly, and
+both report which word size was registered and whether the voices actually
+appeared afterwards.
+
+On a sixty-four bit Windows both engines belong on the machine, not one or
+the other: a thirty-two bit program asking Windows for voices sees only
+thirty-two bit engines. Each is registered by the `regsvr32` of its own word
+size, which is also what puts the thirty-two bit entries under `Wow6432Node`
+where a thirty-two bit host looks for them.
