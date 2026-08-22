@@ -24,7 +24,6 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include "eci_synththread.h"
 #include "evv_abi.h"
@@ -559,9 +558,6 @@ static int32_t postAndCommit(SynthThread *t, ETImessage *m, int32_t seq,
 
     m->vt->addRef(m);
     sent = qt_postMessage(t, m);
-    if (getenv("EVV_TRACE"))
-        fprintf(stderr, "T   post seq=%d units=%d sent=%d (1=queued?) posted=%d\n",
-                (int)seq, (int)units, (int)sent, (int)APP_POSTED(ST_APP(t)));
     if (sent != POST_FAILED) {
         rc = OK;
         if (sent == POST_QUEUED) {
