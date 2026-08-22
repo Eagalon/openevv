@@ -689,14 +689,49 @@ int main(int argc, char **argv)
         double worst_lead = 0.0, sum_lead = 0.0;
         int n_cut = 0, n_lead = 0;
         LARGE_INTEGER freq, t0, t1;
+        /* Every run said the same sentence, so an utterance left over from
+           the run before was indistinguishable from the right one. These
+           differ in length by more than any of them varies, which is enough
+           to say which one actually came out. */
+        static const wchar_t *const say[] = {
+            L"One.",
+            L"One two three four five.",
+            L"The quick brown fox jumps over the lazy dog.",
+            L"Pack my box with five dozen liquor jugs, and then pack another "
+            L"box with five dozen more, quickly."
+        };
+        const int n_say = (int)(sizeof say / sizeof say[0]);
+        size_t expect[4];
+        int wrong = 0, stale = 0, checked = 0;
 
         QueryPerformanceFrequency(&freq);
+
+        /* What each one is worth when nothing interrupts it. */
+        for (i = 0; i < n_say; i++) {
+            ms->bytes = 0;
+            ms->writes_before_abort = -1;
+            frag.pTextStart = say[i];
+            frag.ulTextLen = (ULONG)wcslen(say[i]);
+            if (engine->lpVtbl->Speak(engine, SPF_DEFAULT, &fmtid, NULL,
+                                      &frag, site) != S_OK) {
+                fprintf(stderr, "smoke: reference run %d refused\n", i + 1);
+                failed = 1;
+                break;
+            }
+            expect[i] = ms->bytes;
+            printf("reference %d: %lu bytes for %d chars\n", i + 1,
+                   (unsigned long)expect[i], (int)wcslen(say[i]));
+        }
         for (i = 0; i < stress; i++) {
             int cut = (i % 7 != 0);
             double ms_taken;
 
+            int which = i % n_say;
+
             ms->bytes = 0;
             ms->writes_before_abort = cut ? (i % 13) + 1 : -1;
+            frag.pTextStart = say[which];
+            frag.ulTextLen = (ULONG)wcslen(say[which]);
             g_abort_at.QuadPart = 0;
             g_first_write.QuadPart = 0;
             QueryPerformanceCounter(&t0);
@@ -739,8 +774,34 @@ int main(int argc, char **argv)
                 if (since > 20.0)
                     printf("  run %d: %.0f ms to come back after abort\n",
                            i + 1, since);
-            } else if (ms_taken > worst_full) {
-                worst_full = ms_taken;
+            } else {
+                /* Nothing interrupted this one, so what came out should be
+                   what was asked for. If it is the size of a different one
+                   of the four, the engine spoke an utterance left over from
+                   before -- which is what a person hears as the last thing
+                   they typed being skipped and the one before it read out. */
+                int j;
+
+                checked++;
+                if (ms->bytes != expect[which]) {
+                    wrong++;
+                    for (j = 0; j < n_say; j++) {
+                        if (j != which && ms->bytes == expect[j]) {
+                            stale++;
+                            printf("  run %d: asked for #%d, got #%d "
+                                   "(%lu bytes)\n", i + 1, which + 1, j + 1,
+                                   (unsigned long)ms->bytes);
+                            break;
+                        }
+                    }
+                    if (j == n_say)
+                        printf("  run %d: asked for #%d (%lu bytes), got "
+                               "%lu -- matches nothing\n", i + 1, which + 1,
+                               (unsigned long)expect[which],
+                               (unsigned long)ms->bytes);
+                }
+                if (ms_taken > worst_full)
+                    worst_full = ms_taken;
             }
             if ((i + 1) % 25 == 0) {
                 printf("stress: %d runs\n", i + 1);
@@ -754,6 +815,11 @@ int main(int argc, char **argv)
             printf("spoken in full: worst %.0f ms\n", worst_full);
             printf("before first sample: mean %.1f ms, worst %.0f ms\n",
                    n_lead ? sum_lead / n_lead : 0.0, worst_lead);
+            printf("uninterrupted runs checked: %d, wrong: %d "
+                   "(of those, a previous utterance: %d)\n",
+                   checked, wrong, stale);
+            if (wrong)
+                failed = 1;
         }
         site->lpVtbl->Release(site);
         token->vt.lpVtbl->Release(&token->vt);

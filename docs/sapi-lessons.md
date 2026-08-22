@@ -248,3 +248,33 @@ The lesson under the lesson: when a fix needs a new flag to guard something
 the codebase already has a primitive for, the fix is probably in the wrong
 place. Look for the existing primitive and ask why it is not being called
 early enough.
+
+## 24. A harness that says the same thing every time cannot hear the wrong one
+
+`--stress` spoke one sentence, hundreds of times. So when a run produced
+audio, the audio was right by construction: there was nothing else it could
+have been. It ran clean through the whole of the interruption work.
+
+Then a user said it "speaks the previous utterance when prompted next
+instead of the latest one". Four sentences of clearly different lengths, a
+reference pass to learn what each is worth uninterrupted, and the answer was
+immediate -- twelve of eighteen uninterrupted runs produced the wrong audio,
+and the arithmetic says exactly what happened:
+
+    asked for #4 (151074 bytes), got 227920   = 151074 + 76846   (#4 + #3)
+    asked for #2 ( 46178 bytes), got  64724   =  46178 + 18546   (#2 + #1)
+
+The interrupted text is never discarded. The next utterance is the leftover
+with the new one appended, so a person hears what they typed before, then
+what they just typed. Some runs answer with nothing at all instead.
+
+This is not new and it is not the stop reorder of lesson 23: the engine as
+of the original SAPI commit does it too, byte for byte the same
+concatenation. It had simply never been looked for, because the one thing
+the harness could not distinguish was one utterance from another.
+
+Vary what the test says. A fixture that repeats itself proves that something
+came out, never that the right thing did -- and "the right thing" is most of
+what a speech engine is for. The same blind spot as lesson 19 and lesson 20,
+in a third place: peak found silence, length found a smuggled header, and
+only saying different things finds the wrong words.

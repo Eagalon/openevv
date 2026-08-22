@@ -43,6 +43,15 @@ NVDA does on every keystroke. Audio is not checked there -- most runs are
 meant to be truncated -- only that the engine is still alive and answering.
 Two runs and one abort never reached it; ten stress runs did.
 
+It says four sentences of very different lengths rather than one, and
+measures each uninterrupted first, so it can tell which of them actually
+came out. That is how it catches an utterance the engine kept from before
+the last interruption -- a thing a fixture that repeats itself can never
+see. **It fails today**: the interrupted text is not discarded, and the next
+utterance is that leftover with the new one appended. See
+`sapi-lessons.md` lesson twenty-four; the failure predates the stop work and
+is not fixed.
+
 It also times what a person actually feels, which is not how long an
 utterance takes but how long the engine takes to react:
 
