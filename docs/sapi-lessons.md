@@ -385,3 +385,39 @@ the sequence is not advanced for text messages or it is advanced somewhere
 that the app queue does not observe. Find that before changing `stw_poll` --
 answering "still working" whenever `ST_POSTED` is set would hang on the
 normal path, because nothing on the normal path clears it.
+
+## 28. Two hard offsets from the thirty-two bit object, still being written
+
+The interruption fault was neither the stop nor the wrapper. `stl_stop` ended
+with two writes through offsets taken from the original's thirty-two bit
+objects, and neither offset means the same thing when a pointer is eight
+bytes:
+
+    *(int32_t *)((char *)ST_APP(t)    + 0x5c) = 0;   /* meant: seen  */
+    *(int32_t *)((char *)ST_INDEXQ(t) + 0x0c) = 0;   /* meant: total */
+
+On x86-64 `ETIappMessageQueue::seen` is at 0x7c and its base queue is 0x60
+bytes, so 0x5c is four bytes inside the base -- the stop left `seen` alone
+and put a nought through the middle of the queue object it was resetting.
+`IndexQueue` is `vt, head, tail, total`, so `total` moved from 0x0c to 0x18
+and 0x0c is now halfway through `head`: every stop also zeroed half of a live
+pointer.
+
+The visible half is `seen`. `aq_poll` answers "caught up" when
+`posted == seen`, and `eo_speaking` reads that as not speaking, so with
+`seen` never reset the counts came back level at the wrong moment and the
+caller was told an utterance had finished before the worker had picked it
+up. The text stayed queued and went to the engine during the next utterance,
+ahead of its words -- lesson 27's symptom, and the reason a rate stepped
+quickly says 51, 52, 53, 54, nothing, then 55 and 56.
+
+Written by name now. Forty-three uninterrupted runs in three hundred come out
+right on both sides, where twelve of eighteen were wrong; put either offset
+back and the harness fails again.
+
+The rule: a raw offset into an object whose layout came from a thirty-two bit
+compiler has to be checked against `offsetof` on the build that will run it,
+and there is no reason to keep one at all when the field has a name. Two
+remain of this shape, in `eci_synthback.c` against `ST_CONCAT`; they are
+reads, they have not been checked, and they are the next place to look if
+something there reads wrongly.

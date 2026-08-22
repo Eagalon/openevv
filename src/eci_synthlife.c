@@ -594,7 +594,12 @@ THIS int32_t stl_stop(SynthThread *t)
             rc = ERR_ENGINE;
     }
 
-    *(int32_t *)((char *)ST_INDEXQ(t) + 0x0c) = 0;
+    /* The lead in front of every waiting mark, by name. This was written
+       through a hard offset of 0x0c, which is where `total' sits when a
+       pointer is four bytes and is halfway through `head' when it is eight,
+       so every stop put a nought through the middle of the queue's own head
+       pointer. Same fault as the one below it, same reason. */
+    ST_INDEXQ(t)->total = 0;
     el_listReset(ST_INDEXQ(t));
     eq_reset(ST_MARKS(t));
 
@@ -613,9 +618,15 @@ THIS int32_t stl_stop(SynthThread *t)
     rz_resume(ST_ROMAN(t));
 
     /* The application queue forgets what it was told about too, or the next
-       run would be numbered from where the last one stopped. */
+       run would be numbered from where the last one stopped.
+
+       Both counts by name. The second was written through a hard offset of
+       0x5c, which is where `seen' sits in the original's thirty-two bit
+       object and is four bytes inside the base queue in ours -- so every
+       stop left `seen' alone and put a nought through the middle of the
+       queue it was meant to be resetting. */
     APP_POSTED(ST_APP(t)) = 0;
-    *(int32_t *)((char *)ST_APP(t) + 0x5c) = 0;
+    APP_SEEN(ST_APP(t)) = 0;
     stm_pauseMessageQueue(ST_APP(t), 0);
     app->vt->resume(app);
     return rc;

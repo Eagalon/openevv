@@ -187,6 +187,7 @@ struct SynthThread {
 /* The application queue's count of what it has been told about, and whether
    anyone is listening, which is whether a callback has been registered. */
 #define APP_POSTED(a)    (((ETIappMessageQueue *)(a))->posted)
+#define APP_SEEN(a)      (((ETIappMessageQueue *)(a))->seen)
 #define APP_LISTENING(a) (((ETIappMessageQueue *)(a))->cb != 0)
 
 extern THIS int32_t sy_mutexWait(void *m, int32_t ms)
