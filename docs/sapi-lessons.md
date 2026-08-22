@@ -278,3 +278,28 @@ came out, never that the right thing did -- and "the right thing" is most of
 what a speech engine is for. The same blind spot as lesson 19 and lesson 20,
 in a third place: peak found silence, length found a smuggled header, and
 only saying different things finds the wrong words.
+
+## 25. It was never the wrapper
+
+`test/stopstress.c` does the same thing through the plain library -- no COM,
+no SAPI, no Windows -- and gets the same arithmetic:
+
+    reference: #1 9273  #2 23089  #3 38423  #4 75537 samples
+    asked for #4 (75537), got 113960   = 75537 + 38423   (#4 + #3)
+    asked for #2 (23089), got  32362   = 23089 +  9273   (#2 + #1)
+
+Five of nine uninterrupted runs wrong, one of them silent. So none of it
+belongs to `sapi/evv_sapi.c`: interrupting the engine and asking it to speak
+again is broken in the library, and the wrapper was only the first caller to
+do it often enough to notice.
+
+That matters for where to look next and for what can be used to look. The
+Windows side has no working debugger here (lesson 13) and the SAPI harness
+can only reach the engine through COM. This builds and runs under WSL with
+nothing but gcc, which means gdb, and `-fsanitize=address`, and printf in the
+middle of `stl_stop` -- none of which were available while the only
+reproduction was a DLL inside a screen reader.
+
+Reach for the plainest caller that still shows the bug. It took a user
+saying "it speaks the previous utterance" to find this one, and once it was
+looked for outside the wrapper it was four sentences and sixty runs away.

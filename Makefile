@@ -100,6 +100,18 @@ $(BUILD)/probe: cli/probe.c $(BUILD)/libevv.a
 	@$(CC) $(ALL_CFLAGS) cli/probe.c $(BUILD)/libevv.a -lpthread -lm -o $@
 	@echo "built $@"
 
+# Interrupting the engine, without SAPI and without Windows. The wrapper is
+# where the trouble shows up but the trouble is not in the wrapper: this
+# reproduces it through the plain library, so it can be put under gdb and a
+# sanitiser on a machine where both work. `make stopstress' then
+# `./build/stopstress 200'. It fails today; docs/sapi-lessons.md 24 says why.
+.PHONY: stopstress
+stopstress: $(BUILD)/stopstress
+
+$(BUILD)/stopstress: test/stopstress.c $(BUILD)/libevv.a
+	@$(CC) $(ALL_CFLAGS) test/stopstress.c $(BUILD)/libevv.a -lpthread -lm -o $@
+	@echo "built $@"
+
 $(OBJDIR)/%.o: %.c $(HEADERS)
 	@mkdir -p $(OBJDIR)
 	@$(CC) $(ALL_CFLAGS) -c $< -o $@
