@@ -56,6 +56,7 @@ void evv_port_start(void);
 /* Process-lifetime, as every caller of this engine that works uses. */
 static short frame_buf[FRAME];
 
+static int    trace;
 static size_t got;              /* samples this utterance */
 static int    cut_after;        /* stop after this many buffers, -1 never */
 static int    buffers;
@@ -69,6 +70,8 @@ static enum ECICallbackReturn STDCALL on_message(OldInst *h,
     if (msg != eciWaveformBuffer)
         return eciDataProcessed;
     buffers++;
+    if (trace)
+        fprintf(stderr, "    buffer %d: %ld samples\n", buffers, param);
     if (cut_after >= 0 && buffers > cut_after)
         return eciDataAbort;
     got += (size_t)param;
@@ -81,6 +84,10 @@ static size_t say(OldInst *h, const char *text, int cut)
     got = 0;
     buffers = 0;
     cut_after = cut;
+    if (trace) {
+        fprintf(stderr, "== say \"%.20s\" cut=%d\n", text, cut);
+        fflush(stderr);
+    }
 
     if (!et_addText(h, text) || !et_synthesize(h)) {
         fprintf(stderr, "stopstress: it refused the text\n");
@@ -107,6 +114,7 @@ int main(int argc, char **argv)
     OldInst *h;
 
     runs = argc > 1 ? atoi(argv[1]) : 200;
+    trace = getenv("EVV_TRACE") != 0;
 
     evv_port_start();
     evvRunStaticInitialisers();
