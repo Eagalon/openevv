@@ -303,3 +303,43 @@ reproduction was a DLL inside a screen reader.
 Reach for the plainest caller that still shows the bug. It took a user
 saying "it speaks the previous utterance" to find this one, and once it was
 looked for outside the wrapper it was four sentences and sixty runs away.
+
+## 26. IBM's own binary does not do this, and the roles are not the names
+
+Two things worth having before anyone looks at the stop path again.
+
+**IBM's original gets it right.** NVDA's `ibmeci` driver runs IBM's 1999
+thirty-two bit `ECI.DLL`, and stepping the rate through 51, 52, 53 ... speaks
+every number. Our engine skips one and then says it ahead of the next. So
+this is a divergence in the port, not something Eloquence has always done,
+and there is a known-good behaviour to aim at. `test/suite.sh` never caught
+it because all 81 cases speak a whole utterance and compare samples; nothing
+upstream interrupts anything.
+
+**`ENG_RESET` is not a reset.** The `ENG_*` constants in `eci_synthwork.c` and
+`eci_synthlife.c` are named for the role `stl_stop` uses them in, not for the
+slot they land on. `ENG_CALL_ON` indexes `vtbl_enginewrapper` by `off / 4`, so:
+
+    ENG_RESET  0x2c  ->  index 11  ->  ew_flush
+    ENG_START  0x30  ->  index 12  ->  ew_clearInput
+
+The mapping is right -- `ENG_SYNTH_CB` 0x44 lands on `ew_setSynthToCallback`,
+and the rest check out the same way -- but reading `stl_stop` as though it
+resets the engine is reading it wrong. It flushes, twice.
+
+What has been ruled out, so nobody spends the afternoon again:
+
+* `eciStop` does reach the engine on every abort.
+* `stl_stop` leaves `pending`, `posted` and `samples` all at nought.
+* `eciClearInput` clears the manual queue, which `eciStop` already does.
+* `ew_clearInput` -- the engine's own "throw away what has not been read yet"
+  -- answers success when called from `stl_stop`, and changes nothing. Tried
+  both before and after the second flush.
+* The wrong run is one continuous synthesis. Fifty-six buffers with a single
+  short one at the end, not two utterances run together, so the leftover is
+  text going in rather than samples coming out late.
+
+What is left is the romanizer. `rz_clear` sets `RM_PENDING` and
+`RM_PENDING_LEN` to nought and touches nothing else; whatever the active
+romanizer object is holding is reached only through `ROM_STOP`, and there is
+no `ROM_CLEAR` slot at all. That is the next place to look.

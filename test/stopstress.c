@@ -154,7 +154,7 @@ int main(int argc, char **argv)
         wrong++;
         if (n_got == 0) {
             silent++;
-            printf("  run %d: asked for #%d, got nothing\n", i + 1,
+            fprintf(stderr, "  run %d: asked for #%d, got nothing\n", i + 1,
                    which + 1);
         } else {
             int j;
@@ -163,10 +163,10 @@ int main(int argc, char **argv)
                 if (j != which && n_got == expect[j])
                     break;
             if (j < n_lines)
-                printf("  run %d: asked for #%d, got #%d\n", i + 1,
+                fprintf(stderr, "  run %d: asked for #%d, got #%d\n", i + 1,
                        which + 1, j + 1);
             else
-                printf("  run %d: asked for #%d (%lu), got %lu\n", i + 1,
+                fprintf(stderr, "  run %d: asked for #%d (%lu), got %lu\n", i + 1,
                        which + 1, (unsigned long)expect[which],
                        (unsigned long)n_got);
         }
