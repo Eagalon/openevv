@@ -343,3 +343,45 @@ What is left is the romanizer. `rz_clear` sets `RM_PENDING` and
 `RM_PENDING_LEN` to nought and touches nothing else; whatever the active
 romanizer object is holding is reached only through `ROM_STOP`, and there is
 no `ROM_CLEAR` slot at all. That is the next place to look.
+
+## 27. The caller is told it has finished before the worker has started
+
+The whole of it, from `stopstress` with the text traced as it reaches the
+engine:
+
+    == say "The quick brown fox " cut=7
+    T   aq_poll caught up (posted=seen=26)
+    == say "Pack my box with fiv" cut=-1
+    T   -> engine: "The quick brown fox jumps over the lazy dog."
+    T   -> engine: "Pack my box with five dozen liquor jugs, ..."
+      run 8: asked for #4 (75537), got 113960
+
+The seventh utterance never reached the engine while it was the seventh
+utterance. Its very first `eciSpeaking` landed on `aq_poll`'s early return --
+`q->posted == q->seen`, both 26 -- which answers `APP_WORKING`, and
+`eo_speaking` reads that as not speaking. So the caller stopped asking, the
+text sat in the queue, and the worker handed it to the engine during the run
+after, ahead of that run's own words. What comes out is the previous
+utterance and then the new one, in one continuous synthesis.
+
+That is why it looks like a stop bug and is not one. Stopping only makes it
+likely: parking and resuming the worker widens the gap between a message
+being queued and the worker producing its first answer, and every utterance
+after an interruption lands in it. A screen reader interrupts on every
+keystroke, so it is there constantly. Nothing else in the tree polls that
+fast after a stop, which is why 81 comparison cases never saw it.
+
+`q->posted` and `q->seen` count answers delivered back to the application,
+not work handed to the worker. Between the two there is a window where the
+answer queue is legitimately empty and the utterance has not begun.
+`ST_POSTED(t)` is set to 1 the moment a message is queued and would say so,
+but `stw_poll` never looks at it -- it returns whatever `aq_poll` says and
+only clears `ST_POSTED` on `QUEUE_CAUGHT_UP`, which is 4, and which `aq_poll`
+does not return on this path at all.
+
+Where to pick up: the failing poll has `posted == seen == 26`, so the message
+just queued was given a sequence number the queue had already seen. Either
+the sequence is not advanced for text messages or it is advanced somewhere
+that the app queue does not observe. Find that before changing `stw_poll` --
+answering "still working" whenever `ST_POSTED` is set would hang on the
+normal path, because nothing on the normal path clears it.
