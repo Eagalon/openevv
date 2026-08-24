@@ -275,7 +275,7 @@ ALL_CFLAGS := $(OPT) -std=gnu99 $(INCS) $(WARN) $(LOW) $(TRIM) $(ROMDEFS) \
 OBJDIR  := $(BUILD)/obj-$(RULES)/$(subst $(space),-,$(TAGS))
 OBJECTS := $(patsubst %.c,$(OBJDIR)/%.o,$(notdir $(SOURCES)))
 
-.PHONY: all probe so so32 sotest phonemes dict objects stubs rules missing install install-lib clean evv32 probe32 instances interrupt landing rate rates voices inikeys stopthread pieces prims ipa xmltok ssml romcan romprims
+.PHONY: all probe so so32 sotest phonemes dict dictfile objects stubs rules missing install install-lib clean evv32 probe32 instances interrupt landing rate rates voices inikeys stopthread pieces prims ipa xmltok ssml romcan romprims
 all: $(BUILD)/evv
 
 $(BUILD)/evv: cli/evv.c $(BUILD)/libevv$(SUF).a $(RULESTAMP)
@@ -454,6 +454,19 @@ voices: $(BUILD)/voices
 
 $(BUILD)/voices: test/harness/voices.c $(BUILD)/libevv.a
 	@$(CC) $(ALL_CFLAGS) test/harness/voices.c $(BUILD)/libevv.a -lpthread -lm -o $@
+	@echo "built $@"
+
+# A dictionary read in from a file, which nothing else here does: cli/probe.c
+# makes one and puts it in force but never loads one, and the reference
+# answered the same refusal from the same stub, so both sides agreed while
+# eciLoadDict did nothing at all. `dict' above is the other question -- what
+# the eight dictionary calls answer, against IBM -- and this one is whether a
+# file of pronunciations can get in at all.
+dictfile: $(BUILD)/dictfile
+	@cd $(BUILD) && ./dictfile
+
+$(BUILD)/dictfile: test/harness/dictfile.c $(BUILD)/libevv.a
+	@$(CC) $(ALL_CFLAGS) test/harness/dictfile.c $(BUILD)/libevv.a -lpthread -lm -o $@
 	@echo "built $@"
 
 # A backtrack landed on from a thread that never planted it, which is how
