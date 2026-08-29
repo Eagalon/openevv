@@ -24,6 +24,7 @@
 
 #include "sapi_tts.h"
 #include "../src/evv_abi.h"
+#include "../src/delta_lang.h"
 
 typedef struct OldInst OldInst;
 
@@ -111,6 +112,54 @@ static const struct {
     { L"Open Eloquence 8", L"Male"   }
 };
 
+/* The engine numbers a language as a family and a dialect packed into a
+   word; Windows numbers it as an LCID. Nothing in the engine knows the
+   second and nothing in it should, so the two are held together here and
+   nowhere else.
+ *
+ * Latin American Spanish and Canadian French are the two that have to be
+ * chosen rather than read off: the engine says the region and Windows wants
+ * a country, so es-MX and fr-CA stand for them. A language missing from
+ * this table is still published, under the neutral LCID for "the user's
+ * own", rather than being left out of the voice list. */
+static const struct {
+    int32_t        id;
+    const wchar_t *lcid;
+} evv_lcids[] = {
+    { 0x010000, L"409"  },   /* US English             en-US */
+    { 0x010001, L"809"  },   /* British English        en-GB */
+    { 0x020000, L"c0a"  },   /* Castilian Spanish      es-ES */
+    { 0x020001, L"80a"  },   /* Latin American Spanish es-MX */
+    { 0x030000, L"40c"  },   /* French                 fr-FR */
+    { 0x030001, L"c0c"  },   /* Canadian French        fr-CA */
+    { 0x040000, L"407"  },   /* German                 de-DE */
+    { 0x050000, L"410"  },   /* Italian                it-IT */
+    { 0x110000, L"415"  }    /* Polish                 pl-PL */
+};
+
+static const wchar_t *lcid_of(int32_t id)
+{
+    size_t i;
+
+    for (i = 0; i < sizeof evv_lcids / sizeof evv_lcids[0]; i++)
+        if (evv_lcids[i].id == id)
+            return evv_lcids[i].lcid;
+    return L"400";
+}
+
+/* The module's own name is eight bit and the registry wants sixteen. The
+   names are ASCII, so this is a widening and not a conversion. */
+static void widen(const char *s, wchar_t *out, size_t room)
+{
+    size_t i = 0;
+
+    while (s[i] != 0 && i + 1 < room) {
+        out[i] = (wchar_t)(unsigned char)s[i];
+        i++;
+    }
+    out[i] = 0;
+}
+
 typedef struct EvvEngine EvvEngine;
 
 /* The sample hand-off. One per process, guarded by the engine lock: the
@@ -126,6 +175,9 @@ struct EvvEngine {
     CRITICAL_SECTION   lock;
     ISpObjectToken    *token;
     int                voice;
+    /* Which language this token names, packed as the engine has it. Nought
+       until a token says, and then the first the build carries. */
+    int32_t            lang;
     OldInst           *h;
     ISpTTSEngineSite  *site;
     ULONG              stream_num;
@@ -303,7 +355,20 @@ static HRESULT engine_build(EvvEngine *e)
        COM's; the CLI reads it the same way round. */
     if (eo_getAvailableLanguages(langs, &n) != 0 || n < 1)
         return E_FAIL;
-    h = eo_newEx((int32_t)langs[0]);
+
+    /* The token said which language it is; a token that did not, or that
+       names one this build no longer carries, gets the first there is. */
+    {
+        int32_t want = e->lang;
+        int     i, found = 0;
+
+        for (i = 0; i < n; i++)
+            if ((int32_t)langs[i] == want)
+                found = 1;
+        if (!found)
+            want = (int32_t)langs[0];
+        h = eo_newEx(want);
+    }
     if (h == NULL)
         return E_FAIL;
 
@@ -676,9 +741,10 @@ static HRESULT STDMETHODCALLTYPE tok_set_object_token(ISpObjectWithToken *self_,
     e->token = token;
     token->lpVtbl->AddRef(token);
     e->voice = 1;
+    e->lang = 0;
 
-    /* Which of the eight this token names lives in its attributes, written
-       there by whoever registered us. */
+    /* Which of the eight this token names, and which language, both live in
+       its attributes, written there by whoever registered us. */
     hr = token->lpVtbl->OpenKey(token, L"Attributes", &key);
     if (hr == S_OK && key != NULL) {
         LPWSTR value = NULL;
@@ -689,6 +755,15 @@ static HRESULT STDMETHODCALLTYPE tok_set_object_token(ISpObjectWithToken *self_,
 
             if (v >= 1 && v <= 8)
                 e->voice = v;
+            CoTaskMemFree(value);
+        }
+        value = NULL;
+        /* The engine's own number for the language, not the LCID beside it:
+           `Language' is there for Windows to choose a voice by and says
+           nothing about which module answers. */
+        if (key->lpVtbl->GetStringValue(key, L"EvvLang", &value) == S_OK &&
+            value != NULL) {
+            e->lang = (int32_t)wcstol(value, NULL, 16);
             CoTaskMemFree(value);
         }
         key->lpVtbl->Release(key);
@@ -811,23 +886,40 @@ static BOOL set_string(HKEY key, const wchar_t *name, const wchar_t *value)
                                   sizeof(wchar_t))) == ERROR_SUCCESS;
 }
 
-static BOOL register_voice(int n)
+/* One published voice: one of the eight, in one of the languages this build
+   carries. The key name carries the tag rather than a running number, so a
+   user's chosen voice survives a build with a different set of languages in
+   it -- adding German must not turn their English voice into a Spanish one.
+ *
+ * There was one token per voice before, and its Language always said 409,
+ * so a build with several languages in it published eight English voices
+ * and no way to reach the rest. */
+static BOOL register_voice(const delta_language *lang, int n)
 {
-    wchar_t path[96];
-    wchar_t sub[112];
+    wchar_t path[160];
+    wchar_t sub[192];
     wchar_t num[8];
+    wchar_t id[16];
+    wchar_t tag[32];
+    wchar_t langname[64];
+    wchar_t shown[128];
     HKEY key = NULL;
     HKEY attrs = NULL;
-    const wchar_t *name = evv_voices[n - 1].name;
     const wchar_t *gender = evv_voices[n - 1].gender;
     BOOL ok;
 
-    wsprintfW(path, L"%s\\%s%d", TOKENS_KEY, VOICE_PREFIX, n);
+    widen(lang->tag, tag, sizeof tag / sizeof tag[0]);
+    widen(lang->name, langname, sizeof langname / sizeof langname[0]);
+
+    /* What a person picks from: the voice and the language it speaks. */
+    wsprintfW(shown, L"%s - %s", evv_voices[n - 1].name, langname);
+
+    wsprintfW(path, L"%s\\%s%s.%d", TOKENS_KEY, VOICE_PREFIX, tag, n);
     if (RegCreateKeyExW(HKEY_LOCAL_MACHINE, path, 0, NULL, 0, KEY_SET_VALUE,
                         NULL, &key, NULL) != ERROR_SUCCESS)
         return FALSE;
 
-    ok = set_string(key, NULL, name) &&
+    ok = set_string(key, NULL, shown) &&
          set_string(key, L"CLSID", CLSID_STRING);
 
     wsprintfW(sub, L"%s\\Attributes", path);
@@ -835,12 +927,16 @@ static BOOL register_voice(int n)
         RegCreateKeyExW(HKEY_LOCAL_MACHINE, sub, 0, NULL, 0, KEY_SET_VALUE,
                         NULL, &attrs, NULL) == ERROR_SUCCESS) {
         wsprintfW(num, L"%d", n);
-        ok = set_string(attrs, L"Language", L"409") &&
-             set_string(attrs, L"Name", name) &&
+        wsprintfW(id, L"%x", (unsigned)lang->id);
+        ok = set_string(attrs, L"Language", lcid_of(lang->id)) &&
+             set_string(attrs, L"Name", shown) &&
              set_string(attrs, L"Gender", gender) &&
              set_string(attrs, L"Age", L"Adult") &&
              set_string(attrs, L"Vendor", L"openevv") &&
-             set_string(attrs, L"Voice", num);
+             set_string(attrs, L"Voice", num) &&
+             /* Ours, and read back by SetObjectToken: the engine's own
+                number for the language, which the LCID above cannot say. */
+             set_string(attrs, L"EvvLang", id);
         RegCloseKey(attrs);
     }
     RegCloseKey(key);
@@ -883,24 +979,42 @@ HRESULT STDAPICALLTYPE DllRegisterServer(void)
 {
     int i;
 
+    int l;
+
     if (!register_clsid())
         return SELFREG_E_CLASS;
-    for (i = 1; i <= 8; i++)
-        if (!register_voice(i))
-            return SELFREG_E_CLASS;
+    /* Every language linked into this build, times the eight voices each of
+       them has. delta_languages[] is what the build was made with, so a
+       library with one language in it publishes eight voices as before. */
+    for (l = 0; delta_languages[l] != 0; l++)
+        for (i = 1; i <= 8; i++)
+            if (!register_voice(delta_languages[l], i))
+                return SELFREG_E_CLASS;
     return S_OK;
 }
 
 __declspec(dllexport)
 HRESULT STDAPICALLTYPE DllUnregisterServer(void)
 {
-    wchar_t path[96];
+    wchar_t path[160];
     wchar_t sub[160];
-    int i;
+    wchar_t tag[32];
+    int i, l;
 
     wsprintfW(sub, L"SOFTWARE\\Classes\\CLSID\\%s", CLSID_STRING);
     RegDeleteTreeW(HKEY_LOCAL_MACHINE, sub);
 
+    for (l = 0; delta_languages[l] != 0; l++) {
+        widen(delta_languages[l]->tag, tag, sizeof tag / sizeof tag[0]);
+        for (i = 1; i <= 8; i++) {
+            wsprintfW(path, L"%s\\%s%s.%d", TOKENS_KEY, VOICE_PREFIX, tag, i);
+            RegDeleteTreeW(HKEY_LOCAL_MACHINE, path);
+        }
+    }
+
+    /* The eight an older build published under a running number. Taking
+       them out here is what stops an upgrade leaving voices behind that
+       name a CLSID no longer registered. */
     for (i = 1; i <= 8; i++) {
         wsprintfW(path, L"%s\\%s%d", TOKENS_KEY, VOICE_PREFIX, i);
         RegDeleteTreeW(HKEY_LOCAL_MACHINE, path);

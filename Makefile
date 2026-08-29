@@ -61,6 +61,18 @@ space := $(empty) $(empty)
 # English probe would be linked against the German engine.
 SUF   := $(if $(filter-out enus,$(TAGS)),-$(subst $(space),-,$(TAGS)))
 
+# The object list, written to a file rather than spelled onto a command line.
+# One language is a hundred and fourteen objects and nine are nearly four
+# hundred, which is past what a Windows command line will carry: the shell was
+# handed a string cut off in the middle and stopped on the unmatched quote it
+# ended with. `ar' takes the file with an @ in front of it, and the sweep for
+# stale objects reads the same file rather than being given the list too.
+# $(file ...) writes it without a shell, so nothing is expanded anywhere that
+# has a length limit.
+define write_objs
+$(file >$1,)$(foreach o,$2,$(file >>$1,$o))
+endef
+
 CC  ?= cc
 NM  ?= nm
 
@@ -671,10 +683,10 @@ $(BUILD)/dlltest.exe: test/dll.c $(BUILD)/eci.dll $(RULESTAMP)
 .PHONY: sapi sapi-test
 sapi: $(BUILD)/OpenEloquence.dll
 
-$(BUILD)/OpenEloquence.dll: sapi/evv_sapi.c $(BUILD)/libevv-win.a
+$(BUILD)/OpenEloquence.dll: sapi/evv_sapi.c $(BUILD)/libevv-win$(SUF).a
 	@$(CCWIN) $(CFLAGSWIN) -shared sapi/evv_sapi.c \
-	   $(BUILD)/libevv-win.a $(LDFLAGSWIN) -luuid -lole32 -o $@
-	@echo "built $@"
+	   $(BUILD)/libevv-win$(SUF).a $(LDFLAGSWIN) -luuid -lole32 -o $@
+	@echo "built $@ with $(TAGS)"
 
 sapi-test: $(BUILD)/sapi_smoke.exe
 
@@ -691,11 +703,12 @@ $(OBJDIRWIN)/%.o: %.c $(HEADERS)
 	@$(CCWIN) $(CFLAGSWIN) -c $< -o $@
 
 $(BUILD)/libevv-win$(SUF).a: $(OBJECTSWIN) $(RULESTAMP)
+	@$(call write_objs,$(BUILD)/win$(SUF).objs,$(OBJECTSWIN))
 	@for o in $(OBJDIRWIN)/*.o; do \
-	   case " $(OBJECTSWIN) " in *" $$o "*) ;; *) rm -f "$$o" ;; esac; \
+	   grep -qxF "$$o" $(BUILD)/win$(SUF).objs || rm -f "$$o"; \
 	 done
 	@rm -f $@
-	@$(ARWIN) rcs $@ $(OBJECTSWIN)
+	@$(ARWIN) rcs $@ @$(BUILD)/win$(SUF).objs
 	@echo "built $@ from $(words $(OBJECTSWIN)) objects"
 
 # The same library thirty-two bit, which is what a screen reader driver that
@@ -732,10 +745,10 @@ $(BUILD)/dlltest32.exe: test/dll.c $(BUILD)/eci32.dll $(RULESTAMP)
 .PHONY: sapi32
 sapi32: $(BUILD)/OpenEloquence32.dll
 
-$(BUILD)/OpenEloquence32.dll: sapi/evv_sapi.c $(BUILD)/libevv-win32.a
+$(BUILD)/OpenEloquence32.dll: sapi/evv_sapi.c $(BUILD)/libevv-win32$(SUF).a
 	@$(CCWIN32) $(CFLAGSWIN32) -shared sapi/evv_sapi.c \
-	   $(BUILD)/libevv-win32.a $(LDFLAGSWIN32) -luuid -lole32 -o $@
-	@echo "built $@"
+	   $(BUILD)/libevv-win32$(SUF).a $(LDFLAGSWIN32) -luuid -lole32 -o $@
+	@echo "built $@ with $(TAGS)"
 
 # The installer, built from whatever engines are in build/. The script picks
 # up each word size if its DLL is there, so `make sapi installer' is enough
