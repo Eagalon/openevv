@@ -18,6 +18,8 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "delta.h"
 #include "eci_synththread.h"
 #include "evv_abi.h"
@@ -41,9 +43,17 @@ extern void    getEngsynErrorRange(delta_state *d, int32_t *from, int32_t *to);
 extern int32_t etiwinMainDLL(delta_state *d, int32_t argc, char **argv);
 
 extern int32_t initializeIO(delta_state *d);
-extern int32_t DeltaProc_start(delta_state *d);
-extern int32_t DeltaProc_end(delta_state *d);
-extern int32_t DeltaProc_flush(delta_state *d);
+
+/* The five the engine drives a machine through are rules, and every
+   language has its own, so they are reached through the machine's rather
+   than linked to by name. The call sites read as they did. */
+#define DeltaProc_start(d)              (delta_lang_of(d)->proc_start(d))
+#define DeltaProc_end(d)                (delta_lang_of(d)->proc_end(d))
+#define DeltaProc_flush(d)              (delta_lang_of(d)->proc_flush(d))
+#define DeltaProc_process_sentences(d)  \
+    (delta_lang_of(d)->proc_process_sentences(d))
+#define DeltaProc_process_remaining(d)  \
+    (delta_lang_of(d)->proc_process_remaining(d))
 extern void    vcmdend(delta_state *d, int32_t how);
 extern void    setInterrupt(delta_state *d, int32_t on);
 extern void    throwDeltaErrorNow(delta_state *d);
@@ -92,8 +102,6 @@ extern int32_t synthDevicePlaying(delta_state *d);
 extern int32_t holdSynthDevice(delta_state *d, int32_t on);
 extern int32_t setSynthToNamedFile(delta_state *d, const char *name);
 extern int32_t setSynthToCallback(delta_state *d, void *fn, void *param);
-extern int32_t DeltaProc_process_sentences(delta_state *d);
-extern int32_t DeltaProc_process_remaining(delta_state *d);
 extern int32_t deltaErrorThrown(delta_state *d);
 extern THIS int32_t ds_save(void *s, int32_t volume, const char *name)
     MANGLED("?save@DictionarySet@@QAEHW4DictVolume@@PBD@Z");
@@ -182,7 +190,25 @@ STDCALL int32_t es_engsynFlush(delta_state *d, int32_t stop)
     setInterrupt(d, stop);
 
     if (stop) {
-        throwDeltaErrorNow(d);
+        /* The error is thrown only where the machine is not in the middle of a
+           walk. This is called from whichever thread asked to stop, and the
+           machine runs on the synthesiser's; the flag is not a request but an
+           answer, and `vback` reads it before doing anything else. Set from
+           outside mid-walk, the next backtrack a rule makes answers -1 without
+           having restored any of what it saved -- the argument area, the scan
+           position, the two pointers -- and the rule then carries on over a
+           machine that has been half put back. What comes of that is a call
+           whose arguments are taken from below what was pushed, so a location
+           arrives as the machine's own state pointer and the accessor at that
+           index is nothing: a fault in vinitloc_new, on the synthesiser's
+           thread, which is what answering eciDataAbort from the callback did.
+
+           Nothing is lost by leaving it. The interrupt raised just above is the
+           cooperative half and the machine answers it at its own checkpoints;
+           whoever asked to stop then suspends the synthesiser's queue, which
+           does not come back until the walk is out, and only then resets. */
+        if (ELOQ_BUSY(d) == 0)
+            throwDeltaErrorNow(d);
         stopSynthesizing(d);
     } else {
         es_engsynRestart(d);

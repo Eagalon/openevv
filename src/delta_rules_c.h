@@ -1,8 +1,8 @@
 /* Rules written as C rather than left as bytecode, and what they need of the
    machine they were written for.
  *
- * This is not generated. delta_rules.h is, and anything put there is lost the
- * next time the lifter runs.
+ * This is not generated. Each module's delta_rules_<lang>.h is, and anything
+ * put there is lost the next time the lifter runs.
  */
 
 #ifndef DELTA_RULES_C_H
@@ -12,6 +12,7 @@
 #include <stdint.h>
 
 #include "evv_land.h"
+#include "delta_lang.h"
 
 /* The four flags the machine keeps. A rule written as C keeps them the same
    way, and works them with the same code, or a comparison after an operation
@@ -28,14 +29,10 @@ int     delta_condition(const delta_flags *f, int cond);
    once it has said what it is about to run, so a rule can be swapped between
    the two without anything that calls it knowing, and the two can be set
    against each other by speaking the same text twice. */
-typedef int32_t (*delta_rule_cfn)(void *state, const int32_t *args, int nargs);
-
-typedef struct {
+typedef struct delta_rule_c {
     int            rule;
     delta_rule_cfn fn;
 } delta_rule_c;
-
-extern const delta_rule_c delta_rule_native[];
 
 /* The call a rule makes, whichever way it is being run. Both go through here
    so that what a run says it did is the same either way, which is what a rule
@@ -46,7 +43,8 @@ int32_t delta_rule_direct(int which, const int32_t *a, int n);
    delta_syms_bind copies the stores into the arena and fills this in; a rule
    naming a constant reads it here, whichever way the rule is being run. See
    src/delta_syms.c for why the addresses in the program will not do. */
-extern const int32_t *delta_sym_ref;
+/* Whichever language's, bound once the arena exists. */
+#define delta_sym_ref (*delta_lang_now()->sym_ref)
 void delta_syms_bind(void);
 
 /* A copy, in the arena, of something that lives in the program. The
@@ -59,6 +57,19 @@ void *delta_low_copy(const void *what, size_t bytes);
    an address in the program becomes a value goes through this. */
 void  delta_low_region(const void *at, size_t bytes);
 void *delta_low_at(const void *p);
+
+/* A double written as its bits, which is how the compiler named the constants
+   the Frenches multiply and add by, so the value is had exactly rather than
+   through a decimal that may not read back the same. */
+static inline long double evv_dbl(unsigned long long bits)
+{
+    union { unsigned long long b; double d; } u;
+
+    u.b = bits;
+    return (long double)u.d;
+}
+#define EVV_DBL(bits) evv_dbl(bits)
+
 int32_t delta_rule_called(int which, const int32_t *stack, int argn,
                           int want);
 
@@ -183,6 +194,12 @@ enum {
          ARG(FIELD(0)); \
          r0 = CALL(ventproc, 6); DROP(6); \
          CMP(testl, r0, r0); } while (0)
+
+/* Leaving the rule with an answer. The frame was taken from the arena and
+   has to go back before the answer does, so every way out says this rather
+   than saying return. */
+#define RETURN(x) \
+    do { int32_t out_ = (x); evv_frame_pop(frame); return out_; } while (0)
 
 /* How a decompiled rule writes a call. The arguments are already on that
    stack, which is why they are not named here: what a call says is which

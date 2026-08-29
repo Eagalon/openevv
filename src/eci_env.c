@@ -106,15 +106,16 @@ const int32_t ev_realWorldVoiceParamRange[8][2] = {
 
 /* ---- what the machine will actually do ------------------------------ */
 
-/* Whether a language may be asked for at all. Only one is built in, and the
-   comparison against it is settled when the object is compiled; the arms for
-   the other four are kept because the original keeps them. */
-#define LANGUAGE_BUILT_IN 0x10000
+/* Whether a language may be asked for at all. In the original the
+   comparison is settled when the object is compiled -- 0x10000 in the
+   English module, 0x40000 in the German one -- because a library was one
+   language. Here it is every language linked in, asked in turn; the arms
+   for the four that group dialects together are kept because the original
+   keeps them. */
+#include "delta_lang.h"
 
-int ev_checklang(int32_t want)
+static int checkone(int32_t have, int32_t want)
 {
-    int32_t have = LANGUAGE_BUILT_IN;
-
     switch (have) {
     case 0x60000:
         return want == 0x60000 || want == 0x60100 || want == 0x60800;
@@ -129,6 +130,16 @@ int ev_checklang(int32_t want)
     default:
         return want == have;
     }
+}
+
+int ev_checklang(int32_t want)
+{
+    int i;
+
+    for (i = 0; delta_languages[i] != 0; i++)
+        if (checkone(delta_languages[i]->id, want))
+            return 1;
+    return 0;
 }
 
 /* Whether the device will give us a rate. The four it knows about each have
@@ -479,9 +490,23 @@ int32_t STDCALL ev_setParam(OldInst *h, int32_t which, int32_t value)
         v = (value == 1) ? 0 : 1;
 
     if (which == ENV_RATE) {
-        if (ev_setOutputToDevice(inst, value, OI_ENV(inst)[13],
-                                 OI_ENV(inst)[14], OI_ENV(inst)[15],
-                                 OI_ENV(inst)[16]))
+        /* Wherever the samples are going now, they have to go on going
+           there. Rebuilding as a device regardless, which is what IBM's
+           engine does, loses a buffer registered with eciSetOutputBuffer:
+           ev_setOutputToDevice hands the engine a null one on its way past
+           WHERE_SAMPLES, and the instance reports the new rate ever after and
+           answers no more samples. ev_sendChangedEnvironment has always
+           chosen on OI_WHERE; this is the same choice. */
+        int made = 1;
+
+        if (OI_WHERE(inst) == WHERE_DEVICE)
+            made = ev_setOutputToDevice(inst, value, OI_ENV(inst)[13],
+                                        OI_ENV(inst)[14], OI_ENV(inst)[15],
+                                        OI_ENV(inst)[16]);
+        else if (OI_WHERE(inst) == WHERE_SAMPLES)
+            made = ev_setOutputToSampleCallback(inst, value);
+
+        if (made)
             OI_ENV(inst)[which] = value;
         else
             old = -1;
@@ -522,9 +547,18 @@ int32_t STDCALL ev_setParam(OldInst *h, int32_t which, int32_t value)
         n[3] = OI_ENV(inst)[16];
         n[which - ENV_ENV_FIRST] = value;
 
+        /* These four describe a device and go into the same audio format the
+           rate does, so rebuilding regardless lost a registered buffer here
+           too -- and here there is nothing to weigh against it, since the
+           sample form is built from the rate alone and never reads them. So
+           where the samples are not going to a device the number is recorded
+           and nothing is rebuilt. */
         old = -1;
-        if (ev_setOutputToDevice(inst, OI_RATE(inst), n[0], n[1], n[2],
-                                 n[3])) {
+        if (OI_WHERE(inst) != WHERE_DEVICE) {
+            OI_ENV(inst)[which] = value;
+            old = 0;
+        } else if (ev_setOutputToDevice(inst, OI_RATE(inst), n[0], n[1],
+                                        n[2], n[3])) {
             OI_ENV(inst)[which] = value;
             old = 0;
         }

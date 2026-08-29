@@ -25,9 +25,11 @@
 #include "evv_abi.h"
 #include "eci_engine.h"
 
-/* Where the blob is and how long it is. Both are built into the engine. */
-extern const char eciIni[] MANGLED("?eciIni@@3QBDB");
-extern const int32_t      eciIniSize MANGLED("?eciIniSize@@3HB");
+/* Where the blob is and how long it is. Every language module carries one,
+   and src/delta_lang.c joins them into the single file this reads: the
+   original's own shape, a section per language, which is what the language
+   walk in eci_getlangs.c answers out of. */
+#include "delta_lang.h"
 
 extern void *cpp_new(uint32_t n) MANGLED("??2@YAPAXI@Z");
 extern void  cpp_delete(void *p) MANGLED("??3@YAXPAX@Z");
@@ -69,8 +71,8 @@ THIS void ini_dtor(IniFileReader *r)
 
 THIS int32_t ini_readFileIntoMemory(IniFileReader *r)
 {
-    r->text = eciIni;
-    r->size = eciIniSize;
+    r->text = delta_lang_ini();
+    r->size = delta_lang_ini_size();
     return 1;
 }
 
@@ -266,6 +268,7 @@ THIS char *ini_getString(IniFileReader *r, const char *section,
     char   *answer = 0;
     char   *header;
     int32_t body;
+    int32_t end;
     int32_t stop;
     int32_t n;
 
@@ -291,9 +294,15 @@ THIS char *ini_getString(IniFileReader *r, const char *section,
     body = r->at + (int32_t)strlen(section) + 2;
     if (!ini_goEndSection(r))
         return 0;
+    end = r->at;
 
-    r->at = ini_stringSearch(r, key, body, r->at);
-    if (AT(r, r->at) == 0 || AT(r, r->at) == '\n'
+    /* Where the search stopped is what says whether the key was there: it
+       answers its own limit when it fails, and steps a little past it. The
+       byte at that place only tells on a failure that landed on the end of a
+       line or of the blob, so a key absent from a section with another
+       section behind it came back with the next section's first value. */
+    r->at = ini_stringSearch(r, key, body, end);
+    if (r->at >= end || AT(r, r->at) == 0 || AT(r, r->at) == '\n'
         || AT(r, r->at) == INI_END)
         return 0;
 

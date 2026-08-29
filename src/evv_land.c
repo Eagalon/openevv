@@ -33,30 +33,90 @@
 typedef struct land_entry {
     uintptr_t          name;
     struct land_entry *next;
+    int                planted;   /* this thread has saved into it */
     unsigned long long saved[EVV_LAND_WORDS];
 } land_entry;
 
 static __thread land_entry *land_tab[LAND_BUCKETS];
 
-void *evv_land_place(uintptr_t name)
+static land_entry *found(uintptr_t name)
 {
     unsigned h = (unsigned)((name >> 4) & (LAND_BUCKETS - 1));
     land_entry *e;
 
     for (e = land_tab[h]; e != 0; e = e->next)
         if (e->name == name)
-            return e->saved;
+            return e;
+    return 0;
+}
 
-    /* Not the arena: the machine never holds one of these as a value, and it
-       must go on existing after the frame that planted it has gone. */
-    e = (land_entry *)calloc(1, sizeof *e);
+/* Planting one: the place this thread will come back to, made if there is not
+   one yet. */
+void *evv_land_place(uintptr_t name)
+{
+    unsigned h = (unsigned)((name >> 4) & (LAND_BUCKETS - 1));
+    land_entry *e = found(name);
+
     if (e == 0) {
-        fprintf(stderr, "evv: no room for a landing place\n");
+        /* Not the arena: the machine never holds one of these as a value, and
+           it must go on existing after the frame that planted it has gone. */
+        e = (land_entry *)calloc(1, sizeof *e);
+        if (e == 0) {
+            fprintf(stderr, "evv: no room for a landing place\n");
+            abort();
+        }
+        e->name = name;
+        e->next = land_tab[h];
+        land_tab[h] = e;
+    }
+    e->planted = 1;
+    return e->saved;
+}
+
+/* Forget every landing planted in a run of addresses, which is what a rule's
+   frame going back on the frame stack means. The names are frame addresses and
+   the same ones come round again, so a landing left marked planted after its
+   frame has gone is a landing into a C frame that has already returned: the
+   jump restores a dead stack pointer and carries on in it.
+
+   No fault is known to have come of it. It was found while chasing one that
+   turned out to be a signed jump target, and the theory was wrong about that;
+   this is closed on its own account, because a landing that outlives its frame
+   is a hole whether or not anything has fallen in. */
+void evv_land_forget(uintptr_t lo, uintptr_t hi)
+{
+    int h;
+
+    for (h = 0; h < LAND_BUCKETS; h++) {
+        land_entry *e;
+
+        for (e = land_tab[h]; e != 0; e = e->next)
+            if (e->name >= lo && e->name < hi)
+                e->planted = 0;
+    }
+}
+
+/* Landing on one. A name this thread has never planted is not a landing place
+   at all, and the table above would hand back a block of noughts: the jump
+   would then load nought as the stack pointer and go to nought, which is a
+   fault with nothing in it to say where it came from.
+
+   It happens when the name outlives the thread that planted it. The name is
+   the address of a rule's frame and the frame is in the arena, which every
+   thread shares, so a name does travel between threads even though a landing
+   place cannot -- the machine keeps the one it means to return to in its own
+   state, where whoever stops the engine can reach it. Saying so is the whole
+   point of this: the caller has asked the machine to backtrack on a thread
+   that was never in the rule. */
+void *evv_land_planted(uintptr_t name)
+{
+    land_entry *e = found(name);
+
+    if (e == 0 || !e->planted) {
+        fprintf(stderr, "evv: landing 0x%lx was never planted on this thread,"
+                " so there is nowhere to jump to\n", (unsigned long)name);
         abort();
     }
-    e->name = name;
-    e->next = land_tab[h];
-    land_tab[h] = e;
     return e->saved;
 }
 

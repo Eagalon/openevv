@@ -32,12 +32,16 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # against a language it was not worked out on.
 LANG_DIR = os.environ.get('EVV_LANG_DIR',
                            os.path.join(ROOT, 'lang', 'enus'))
-RULES_C = os.path.join(LANG_DIR, 'delta_rules_enus.c')
-CONSTS_C = os.path.join(LANG_DIR, 'delta_consts_enus.c')
+# The files are named for their language, and the directory is named for it
+# too, so which language this is comes from the directory.
+LANG_TAG = os.path.basename(LANG_DIR.rstrip('/\\'))
+RULES_C = os.path.join(LANG_DIR, 'delta_rules_%s.c' % LANG_TAG)
+CONSTS_C = os.path.join(LANG_DIR, 'delta_consts_%s.c' % LANG_TAG)
 
 OPS = ['call', 'jump', 'branch', 'cmp', 'alu2', 'alu1', 'load',
        'store', 'switch', 'map', 'return', 'scale', 'addk', 'mul',
-       'div', 'widen', 'setcc', 'push', 'setarg', 'popn', 'popreg']
+       'div', 'widen', 'setcc', 'push', 'setarg', 'popn', 'popreg',
+       'ftol']
 
 KINDS = ['none', 'imm', 'sym', 'slot', 'slotaddr', 'state', 'statefld',
          'reg', 'ind']
@@ -96,7 +100,13 @@ def carve_rules(text):
 
 def carve_blobs(text):
     out = {}
-    for m in re.finditer(r'uint8_t (evv_[A-Za-z0-9_]*)\[\d+\]\s*=\s*\{', text):
+    # The language goes in front of every name in a module, so that two of
+    # them can be linked into one program, and what the rules name a blob by is
+    # that whole name. Written without the prefix once, and a blob named
+    # `enus_evv_...' then matched nothing at all: the pronunciations went out
+    # of tools/delta-dict.py's reach and stayed there for two days.
+    for m in re.finditer(r'uint8_t ([A-Za-z0-9_]*evv_[A-Za-z0-9_]*)'
+                         r'\[\d+\]\s*=\s*\{', text):
         name = m.group(1)
         close_at = text.index('\n};', m.end())
         body = text[m.end():close_at].replace('\n', '')
@@ -159,13 +169,19 @@ class Code:
             return (op, sub, a, b), (), ops, [], q3 + trail
 
         if op == 'call':
+            # Two counts follow the entry: how many arguments it takes, and
+            # how deep the argument area should be here. The first is what the
+            # entry gets -- constant for 3,495 of the 3,500 entries called,
+            # which is what says it is the arity -- and the second grows
+            # through a rule, because a call does not pop what it was given.
             which = self.u16(q)
-            return ('call', self.entries[which]), (self.code[q + 3],), ops, [], q + 4
+            return (('call', self.entries[which]),
+                    (self.code[q + 2], self.code[q + 3]), ops, [], q + 4)
         if op == 'jump':
-            return ('jump',), (), ops, [self.s16(q)], q + 2
+            return ('jump',), (), ops, [self.u16(q)], q + 2
         if op == 'branch':
             return (('branch', COND[self.code[q]]), (), ops,
-                    [self.s16(q + 1)], q + 3)
+                    [self.u16(q + 1)], q + 3)
         if op == 'cmp':
             return two(CMPK)
         if op == 'alu2':
@@ -186,7 +202,7 @@ class Code:
             a, _av, q2 = one(q)
             n = self.u16(q2)
             q2 += 2
-            targets = [self.s16(q2 + 2 * i) for i in range(n)]
+            targets = [self.u16(q2 + 2 * i) for i in range(n)]
             return ('switch', a), (n,), ops, targets, q2 + 2 * n
         if op == 'map':
             a, _av, q2 = one(q + 2)
@@ -214,6 +230,25 @@ class Code:
         if op == 'setarg':
             a, _av, q2 = one(q + 1)
             return ('setarg', a), (self.code[q],), ops, [], q2
+        if op == 'ftol':
+            # A little floating point: a count, then that many steps, then the
+            # register the truncated answer goes in. A step is a kind byte and
+            # then either an operand to read an integer through or the two
+            # halves of a double constant in the ordinary constant pool.
+            n = self.code[q]
+            q2 = q + 1
+            steps = []
+            for _ in range(n):
+                what = self.code[q2]
+                q2 += 1
+                if what in (0, 1):
+                    _nm, _v, q2 = one(q2)
+                    steps.append((what, len(ops) - 1))
+                else:
+                    steps.append((what, self.u16(q2), self.u16(q2 + 2)))
+                    q2 += 4
+            return ('ftol', tuple(steps)), (self.code[q2],), ops, [], q2 + 1
+
         if op in ('popn', 'popreg'):
             return (op,), (self.code[q],), ops, [], q + 1
 
@@ -397,7 +432,7 @@ def dump(want):
             line = ' '.join(str(part) for part in shape)
             notes = []
             if shape[0] == 'call':
-                notes.append('%d args' % vals[0])
+                notes.append('%d args, %d in the area' % (vals[0], vals[1]))
             # A symbol and an immediate are what a lexicon is written in, so
             # they are resolved; the rest is left as it lies.
             for part, val, _where in ops:

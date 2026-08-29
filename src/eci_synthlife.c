@@ -87,7 +87,7 @@ static const char CMD_CONCATENATIVE[] = "`esp2";
 /* How big each of the things the constructor makes is. */
 extern const uint32_t rm_bytes;
 #define SIZE_CONCAT      0x2c0
-#define SIZE_MARKQUEUE   0x14
+extern const uint32_t eq_bytes;
 #define MARKQUEUE_ROOM   0x200
 #define SIZE_FILTERS     0x144
 extern const uint32_t sm_bytes;
@@ -334,7 +334,7 @@ static void stl_build(SynthThread *t, void *app, void *state)
     p = cpp_new(SIZE_CONCAT);
     ST_CONCAT(t) = p ? cm_ctor(p, t) : 0;
 
-    p = cpp_new(SIZE_MARKQUEUE);
+    p = cpp_new(eq_bytes);
     ST_MARKS(t) = p ? eq_ctor(p, MARKQUEUE_ROOM) : 0;
     if (!ST_MARKS(t))
         ST_STATUS(t) = ERR_FAILED;
@@ -617,8 +617,12 @@ THIS int32_t stl_stop(SynthThread *t)
     stm_qtResume(t);
     rz_resume(ST_ROMAN(t));
 
-    /* The application queue forgets what it was told about too, or the next
-       run would be numbered from where the last one stopped.
+    /* The application queue forgets what it was told about too, and what it
+       has collected with it, or the next run would be numbered from where the
+       last one stopped. Both, or the two drift: a stale count of what was
+       collected that happens to equal the fresh count of what was posted
+       reads as nothing outstanding, and the queue delivers none of what is
+       sitting in it.
 
        Both counts by name. The second was written through a hard offset of
        0x5c, which is where `seen' sits in the original's thirty-two bit

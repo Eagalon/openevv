@@ -28,8 +28,13 @@ extern void    runtime_delete(delta_state *d);
 
 #define ALIGN_UP(n, a) (((n) + (a) - 1) & ~((a) - 1))
 
+/* Whichever language the caller set before asking for one. The engine
+   array is what sets it: it keeps an engine per language and knows which it
+   is about to make. A machine remembers the language it was made for, so
+   nothing after this has to be told again. */
 delta_state *delta_new(void)
 {
+    const delta_language *lang = delta_lang_now();
     delta_state *d;
     int32_t      at, i;
     int32_t      nword = 0, nlong = 0, nshort = 0, ncompound = 0;
@@ -39,7 +44,7 @@ delta_state *delta_new(void)
        can name one. */
     delta_syms_bind();
 
-    d = malloc(DELTA_STATE_BYTES);
+    d = delta_lang_alloc(lang);
     if (d == 0)
         return 0;
 
@@ -124,7 +129,14 @@ delta_state *delta_new(void)
             break;
 
         case DG_COMPOUND:
-            at   = ALIGN_UP(at, 2);
+            /* A compound whose first word is 6 holds four-byte items and goes
+               on a four-byte boundary; the rest want two. The lifter's model
+               of this area in tools/gen-globals.py has the same rule and
+               checks it against the object cell by cell, so the two have to
+               agree or every offset from the first such compound onwards is
+               two bytes out -- which is what four languages did, reading a
+               variable's kind out of the middle of the cell before it. */
+            at   = ALIGN_UP(at, delta_compounds[c].init == 6 ? 4 : 2);
             cell = (unsigned char *)d + at;
             EVV_AT(delta_compound *, d->compound)[c].at    = cell;
             EVV_AT(delta_compound *, d->compound)[c].init  = delta_compounds[c].init;
@@ -141,13 +153,13 @@ delta_state *delta_new(void)
     d->direct_a = EVV_REF((int16_t *)((char *)EVV_AT(int32_t **, d->word)[1] - 4));
     d->direct_b = EVV_REF((int16_t *)((char *)EVV_AT(int32_t **, d->word)[2] - 4));
 
-    link_new(d);
-    set_dict_new(d);
-    act_dict_new(d);
+    lang->link_new(d);
+    lang->set_dict_new(d);
+    lang->act_dict_new(d);
     if (runtime_new(d)) {
         /* What the original does, and it drops the four indexes on the
            floor rather than going through delta_delete. */
-        free(d);
+        delta_lang_free(d);
         return 0;
     }
 
@@ -156,12 +168,21 @@ delta_state *delta_new(void)
 
 void delta_delete(delta_state *d)
 {
+    const delta_language *lang;
+    const delta_language *was;
+
     if (d == 0)
         return;
 
-    link_delete(d);
-    set_dict_delete(d);
-    act_dict_delete(d);
+    /* Taking a machine down reads the language's tables, and this is called
+       from wherever the last reference went, which need not be a thread
+       speaking that language. */
+    lang = delta_lang_of(d);
+    was  = delta_lang_set(lang);
+
+    lang->link_delete(d);
+    lang->set_dict_delete(d);
+    lang->act_dict_delete(d);
     runtime_delete(d);
 
     if (EVV_AT(int32_t **, d->word) != 0) {
@@ -181,5 +202,6 @@ void delta_delete(delta_state *d)
         d->lng = EVV_REF(0);
     }
 
-    free(d);
+    delta_lang_free(d);
+    delta_lang_set(was);
 }

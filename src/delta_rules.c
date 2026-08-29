@@ -24,15 +24,34 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "delta_rules.h"
+#include "delta.h"
 #include "delta_rules_c.h"
 #include "evv_land.h"
 #include "evv_arena.h"
 
+/* Every table below belongs to a language, and which language is what the
+   machine says. delta_run_rule sets it from the machine it was handed and
+   puts back what was there, so everything under it -- the interpreter, a
+   rule written as C, and every primitive either calls -- reads the right
+   one without being told. Written as names rather than as reaches so that
+   the interpreter reads as it did when there was only ever one language. */
+#define L                      (delta_lang_now())
+#define delta_rules            (L->rules)
+#define delta_rule_count       (L->rule_count)
+#define delta_rule_code        (L->rule_code)
+#define delta_rule_imm         (L->rule_imm)
+#define delta_rule_map         (L->rule_map)
+#define delta_rule_entry       (L->rule_entry)
+#define delta_rule_entry_name  (L->rule_entry_name)
+#define delta_rule_setjmp      (L->rule_setjmp)
+#define delta_rule_native      (L->rule_native)
+#define DELTA_RULE_FRAME_MAX   (L->frame_max)
+
 enum {
     OP_CALL, OP_JUMP, OP_BRANCH, OP_CMP, OP_ALU2, OP_ALU1, OP_LOAD,
     OP_STORE, OP_SWITCH, OP_MAP, OP_RETURN, OP_SCALE, OP_ADDK, OP_MUL,
-    OP_DIV, OP_WIDEN, OP_SETCC, OP_PUSH, OP_SETARG, OP_POPN, OP_POPREG
+    OP_DIV, OP_WIDEN, OP_SETCC, OP_PUSH, OP_SETARG, OP_POPN, OP_POPREG,
+    OP_FTOL
 };
 
 /* The argument area is kept as it was rather than worked out per call. The
@@ -280,6 +299,18 @@ static uint16_t get16(const uint8_t *p)
 static int32_t get16s(const uint8_t *p)
 {
     return (int32_t)(int16_t)get16(p);
+}
+
+/* Where a jump goes: an offset from the start of the rule, so never negative.
+   Read as signed it wrapped at 32,767, and English's longest rule is 30,929
+   bytes -- within six per cent of that and never over it, which is why this
+   held for three languages. French of France has a rule of 33,075 bytes and
+   Canadian French one of 34,154, and both jumped to a negative place and took
+   the machine apart. Nothing about the bytecode changes: the emitter always
+   wrote a position, and only the reading of it was wrong. */
+static int32_t get16to(const uint8_t *p)
+{
+    return (int32_t)get16(p);
 }
 
 static int32_t operand_read(interp *st, const uint8_t **pp, int w, int sext);
@@ -533,12 +564,12 @@ static void step(interp *st)
     }
 
     case OP_JUMP:
-        st->pc = get16s(p);
+        st->pc = get16to(p);
         return;
 
     case OP_BRANCH: {
         int cond = *p++;
-        int32_t to = get16s(p);
+        int32_t to = get16to(p);
 
         p += 2;
         if (delta_condition(&st->fl, cond)) {
@@ -634,7 +665,7 @@ static void step(interp *st)
 
         p += 2;
         if (idx >= 0 && idx < (int32_t)n) {
-            st->pc = get16s(p + 2 * idx);
+            st->pc = get16to(p + 2 * idx);
             return;
         }
         p += 2 * n;
@@ -671,6 +702,55 @@ static void step(interp *st)
         scale = *p++;
         code = *p++;
         reg_write(st, code, disp + base + index * scale);
+        break;
+    }
+
+    /* A little floating point, which only the Frenches use: two rules in
+       France's module and eight in Canada's. An integer is pushed, a double
+       constant or another integer is combined into it, and the result is
+       truncated towards zero into a register -- which is what __ftol2 does.
+
+       It is worked out in long double because that is the x87 register the
+       original computes in, and the difference is not academic: with the
+       constant 0.4, an input of 5 and an addend of -3, sixty-four bit
+       arithmetic keeps 2.0 exactly and truncates to -1, where the eighty-bit
+       register keeps 2.000000000000000111 and truncates to 0. Two of two
+       point nine million combinations differ, and this is them. A host whose
+       long double is no wider than double would take the first answer. */
+    case OP_FTOL: {
+        long double acc = 0;
+        unsigned char steps = *p++;
+        unsigned char code;
+        unsigned char i;
+
+        for (i = 0; i < steps; i++) {
+            unsigned char what = *p++;
+            union { uint64_t bits; double d; } k;
+
+            switch (what) {
+            case 0:
+                acc = (long double)operand_read(st, &p, 4, 1);
+                break;
+            case 1:
+                acc += (long double)operand_read(st, &p, 4, 1);
+                break;
+            case 2:
+            case 3:
+                k.bits = (uint32_t)delta_rule_imm[get16(p)];
+                p += 2;
+                k.bits |= (uint64_t)(uint32_t)delta_rule_imm[get16(p)] << 32;
+                p += 2;
+                if (what == 2)
+                    acc *= (long double)k.d;
+                else
+                    acc += (long double)k.d;
+                break;
+            default:
+                break;
+            }
+        }
+        code = *p++;
+        reg_write(st, code, (int32_t)acc);
         break;
     }
 
@@ -805,11 +885,14 @@ static void delta_rule_report(void)
    as C does not pay for a frame and an interpreter it will never use. The
    thread this runs on has sixty-four kilobytes, and the rules nest deeply
    enough that paying twice runs out of it. */
+#ifndef EVV_NO_BYTECODE
+
 static int32_t run_bytecode(void *state, const delta_rule *r,
                             const int32_t *args, int nargs)
 {
     unsigned char *frame = evv_frame_push(DELTA_RULE_FRAME_MAX);
     volatile int depth = 0;
+    volatile int planted = 0;
     interp st;
     int i;
 
@@ -840,20 +923,44 @@ static int32_t run_bytecode(void *state, const delta_rule *r,
             depth = st.argn;
             st.reg[0] = EVV_LAND_SAVE((intptr_t)buf);
             st.argn = depth;
+            planted = 1;
             continue;
         }
         step(&st);
         delta_rule_steps++;
     }
 
+    /* The frame goes back for the next rule to have, so any landing planted
+       in it stops being one. */
+    if (planted)
+        evv_land_forget((uintptr_t)frame,
+                        (uintptr_t)frame + DELTA_RULE_FRAME_MAX);
     evv_frame_pop(frame);
     return st.answer;
 }
 
+#else
+
+/* A build where every rule is written as C carries no bytecode: the megabyte
+   and a half of it is the largest single thing in the library and nothing
+   would read it. So a rule that turns out not to have been written as C is a
+   fault in the build rather than something to fall back from, and it says so
+   by name rather than reading an array that is not there. */
+static int32_t run_bytecode(void *state, const delta_rule *r,
+                            const int32_t *args, int nargs)
+{
+    (void)state; (void)args; (void)nargs;
+    fprintf(stderr, "evv: %s was not written as C and this build has no"
+            " bytecode to run it as\n", r->name);
+    abort();
+}
+
+#endif
+
 /* The rules written as C, read out by rule number. Built on the first call,
-   because how many rules there are is the language module's to say. */
-static delta_rule_cfn *by_number;
-static int             by_number_done;
+   because how many rules there are is the language module's to say, and
+   kept by the language rather than here, because there may be more than one
+   and each has its own. */
 
 int32_t delta_run_rule(void *state, const delta_rule *r, const int32_t *args,
                        int nargs)
@@ -861,8 +968,18 @@ int32_t delta_run_rule(void *state, const delta_rule *r, const int32_t *args,
     const delta_rule *was;
     const delta_rule_c *w;
     delta_rule_cfn     fn;
-    int n = (int)(r - delta_rules);
+    delta_rule_cfn    *by_number;
     int32_t answer;
+    int n;
+
+    /* Which language, before anything reads a table. The machine says: it
+       was made by one language and remembers which, and a rule of another
+       cannot reach it, because nothing hands one over. What was in force
+       goes back at the end, since a rule may be run from inside a callback
+       of a machine speaking something else. */
+    const delta_language *was_lang = delta_lang_set(delta_lang_of(state));
+
+    n = (int)(r - delta_rules);
 
     if (delta_rule_trace < 0) {
         const char *e = getenv("DELTA_RULE_TRACE");
@@ -899,7 +1016,7 @@ int32_t delta_run_rule(void *state, const delta_rule *r, const int32_t *args,
        Which rules are written as C is settled at link time, so the table is
        read into an index by rule number once. Scanning it instead cost every
        call a walk over the whole of it. */
-    if (!by_number_done) {
+    if (*L->rule_native_by_number == 0) {
         const delta_rule_c *t;
 
         by_number = calloc((size_t)delta_rule_count, sizeof(*by_number));
@@ -907,8 +1024,12 @@ int32_t delta_run_rule(void *state, const delta_rule *r, const int32_t *args,
             for (t = delta_rule_native; t->fn != 0; t++)
                 if (t->rule >= 0 && t->rule < delta_rule_count)
                     by_number[t->rule] = t->fn;
-        by_number_done = 1;
+        /* A language with none of its rules written as C gets an index of
+           nulls, which is what says it has been looked at. The walk below
+           is what answers if there was no room for one. */
+        *L->rule_native_by_number = by_number;
     }
+    by_number = *L->rule_native_by_number;
 
     if (by_number != 0)
         fn = (n >= 0 && n < delta_rule_count) ? by_number[n] : 0;
@@ -928,6 +1049,7 @@ int32_t delta_run_rule(void *state, const delta_rule *r, const int32_t *args,
         fprintf(stderr, "# %s left with %08x\n", r->name, (unsigned)answer);
         fflush(stderr);
     }
+    delta_lang_set(was_lang);
     return answer;
 }
 

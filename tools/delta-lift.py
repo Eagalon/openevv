@@ -206,6 +206,13 @@ class Decoder:
         self.data = data
         self.tables = tables
         self.holes = []
+        # The x87 stack, as the expression built on it. Only the Frenches use
+        # floating point at all -- two rules in France's module and eight in
+        # Canada's -- and only ever one value deep: an integer is pushed, a
+        # constant or another integer is combined into it, and __ftol2 takes it
+        # off as a truncated int. Anything deeper or any other operation is not
+        # decoded and shows as a hole rather than being guessed at.
+        self.fpu = []
         self.blocks = []
         self.regs = {}
         # The argument area as the compiler sees it: every slot that is
@@ -336,6 +343,9 @@ class Decoder:
         self.labels[addr] = label
         for r in ("%eax", "%ecx", "%edx"):
             self.drop(r)
+        # A branch never lands part way through one of these, so anything left
+        # on the stack at a label was never taken off and is a mistake.
+        self.fpu = []
 
     def prologue(self, i):
         """Read past the frame setup and work out where the arguments are.
@@ -442,8 +452,20 @@ class Decoder:
         if mnem in ("pushl", "push"):
             # A push and an immediate pop is how the compiler writes a small
             # constant into a register.
+            #
+            # Unless something jumps at the pop. A switch arm that wants a
+            # different constant in the same register is written as its own
+            # push and a jump to the pop of the arm below it, so the pop is a
+            # landing place and folding the pair away takes it out from under
+            # the jump: the arm that jumped then arrives past it and the
+            # register keeps whatever it happened to hold. That was one wrong
+            # fricative amplitude in the German /r/, and nothing else in
+            # eighty-one cases of English, which is how long it went unseen.
+            # Both halves are kept where that happens; the push and the popreg
+            # do between them what the fold would have done in one.
             if i < len(it) and it[i][2] in ("popl", "pop") \
-                    and it[i][3].startswith("%") and ops.startswith("$"):
+                    and it[i][3].startswith("%") and ops.startswith("$") \
+                    and it[i][0] not in self.targets and it[i][1] is None:
                 v = ("imm", int(ops.lstrip("$"), 0))
                 self.put(it[i][3], v)
                 self.emit(("load", "movl", v, it[i][3]))
@@ -543,6 +565,40 @@ class Decoder:
                     return i
             self.hole("lea %s" % src)
             self.put(dst, None)
+            return i
+
+        if mnem in ("fildl", "fild") and "," not in ops:
+            if self.fpu:
+                # Two deep. Nothing in nine languages does this, and quietly
+                # dropping the first would be a wrong answer rather than a
+                # refusal, so it is a hole.
+                self.hole("fild with something already on the stack")
+                return i
+            self.fpu = [("ld", self.value(ops))]
+            return i
+
+        if mnem in ("fiaddl", "fiadd") and self.fpu:
+            self.fpu.append(("addi", self.value(ops)))
+            return i
+
+        if mnem in ("fmull", "fmul", "faddl", "fadd") and self.fpu \
+                and reloc and reloc.lstrip("_").startswith("real@"):
+            # The constant is in the name the compiler gave it, so the bits
+            # are had exactly rather than read out of another section.
+            bits = int(reloc.lstrip("_").split("@", 1)[1], 16)
+            self.fpu.append(("mulk" if mnem.startswith("fmul") else "addk",
+                             bits))
+            return i
+
+        if mnem in ("calll", "call") and reloc \
+                and reloc.lstrip("_") == "ftol2":
+            if not self.fpu:
+                self.hole("ftol2 with nothing on the stack")
+                return i
+            self.emit(("ftol", tuple(self.fpu), "%eax"))
+            self.fpu = []
+            for r in ("%eax", "%ecx", "%edx"):
+                self.drop(r)
             return i
 
         if mnem in ("calll", "call"):
