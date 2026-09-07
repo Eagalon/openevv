@@ -12,6 +12,9 @@ import sys
 # Answered by the C library, the compiler's own runtime, pthreads or the
 # linker. mmap and munmap arrived with the arena, which only the sixty-four
 # bit build compiles, and _TLS_MODULE_BASE_ came with its thread-local model.
+# sincos is nobody's call: klatt_fx.c asks for the sine and the cosine of one
+# angle and the compiler folds the pair into libm's single answer, so the name
+# appears in an object without appearing in any source.
 SYSTEM = re.compile(
     r"^(__|_GLOBAL_OFFSET_TABLE_$|_TLS_MODULE_BASE_$|pthread_|"
     r"std(in|out|err)$|"
@@ -22,7 +25,7 @@ SYSTEM = re.compile(
     r"getc$|putc$|ungetc$|rewind$|remove$|rename$|setvbuf$|perror$|"
     r"time$|clock$|clock_gettime$|nanosleep$|getenv$|system$|readlink$|"
     r"rand$|srand$|abs$|labs$|atoi$|atof$|"
-    r"pow$|floor$|ceil$|sqrt$|exp$|cos$|sin$|"
+    r"pow$|floor$|ceil$|sqrt$|exp$|cos$|sin$|sincos$|"
     r"longjmp$|setjmp$|_setjmp$|stat$)")
 
 
