@@ -486,13 +486,17 @@ $(BUILD)/sd_openevv$(SUF): speechd/openevv.c speechd/spd_audio.h \
 # backend are not in the path here, so what this proves is that the module
 # says the right thing and never lets a control sequence become speech.
 speechd-test: $(BUILD)/sd_openevv$(SUF) $(BUILD)/evv
-	@OPENEVV_EXPECT_LANGUAGES=$(words $(LANGS)) \
+	@OPENEVV_EXPECT_LANGUAGES=$(if $(SPEECHD_LANGUAGES),$(SPEECHD_LANGUAGES),$(words $(LANGS))) \
 	   python3 test/speechd.py $(BUILD)/sd_openevv$(SUF) speechd/openevv.conf
 
-# And with every language the module knows in it.
+# And with every language in it, which is the configuration a release ships.
+# Ten are linked and nine are advertised: Japanese builds and speaks but its
+# text is not UTF-8 in any of its three code sets, and speechd/openevv.c says
+# why it is deliberately not offered. So the count is stated rather than taken
+# from LANGS, and a language that stopped being advertised would fail here.
 speechd-test-all:
-	@$(MAKE) RULES=$(RULES) \
-	   LANGS="lang/enus lang/engb lang/dede lang/eses lang/esus lang/frfr lang/frca lang/itit" \
+	@$(MAKE) RULES=$(RULES) SPEECHD_LANGUAGES=9 \
+	   LANGS="lang/enus lang/engb lang/dede lang/eses lang/esus lang/frfr lang/frca lang/itit lang/plpl lang/jajp" \
 	   speechd-test
 
 # A dictionary read in from a file, which nothing else here does: cli/probe.c

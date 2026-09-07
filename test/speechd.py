@@ -227,6 +227,11 @@ def main():
             f"inserted name ({len(retainedSymbols)} versus {len(plainNames)})"
         )
         print("speechd: available languages", flush=True)
+        # Each sentence carries its own language's letters, which is the
+        # point of speaking it. Polish is the pangram rather than a phrase
+        # because it is the one language whose text reaches the engine as
+        # UTF-8 rather than as single bytes, so what wants exercising is every
+        # diacritic it has and not merely a plausible one.
         samples = {
             "de-DE": "Grüße aus Köln.",
             "en-GB": "The quick brown fox.",
@@ -236,6 +241,7 @@ def main():
             "fr-CA": "L'été à Montréal.",
             "fr-FR": "L'été à Paris.",
             "it-IT": "Perché è così.",
+            "pl-PL": "Zażółć gęślą jaźń.",
         }
         for language in sorted(languages):
             print(f"speechd: language {language}", flush=True)
@@ -243,6 +249,33 @@ def main():
             audio, _, _, event = module.speak(samples[language])
             assert event == "702 END" and audio
         module.set(language="en-US")
+
+        # Polish is the one language the engine converts from UTF-8 itself,
+        # so the module has to leave its text alone; its own UTF-8 to Latin-1
+        # pass would turn eight of the nine Polish diacritics into question
+        # marks. Held against the command, by length rather than byte for
+        # byte: the module has spoken a good many utterances by this point and
+        # the engine's later utterances legitimately differ from its first,
+        # which docs/quirks.md describes and the English comparison above can
+        # only avoid by being the first thing the module says. Length is
+        # decisive anyway -- converting the text twice gives 99,616 PCM bytes
+        # where leaving it alone gives 36,762.
+        if "pl-PL" in languages:
+            print("speechd: Polish reaches the engine as UTF-8", flush=True)
+            module.set(language="pl-PL")
+            polishAudio, _, _, event = module.speak(samples["pl-PL"])
+            assert event == "702 END" and polishAudio
+            polishDirect = subprocess.check_output([
+                directBinary,
+                "-L", "0x110000", "-v", "1", "-o", "-", samples["pl-PL"],
+            ])
+            assert len(polishAudio) == len(polishDirect) - 44, (
+                "Polish through the module is not the length of direct "
+                "synthesis; its text is being converted twice or not at all "
+                f"({len(polishAudio)} versus {len(polishDirect) - 44} PCM "
+                "bytes)"
+            )
+            module.set(language="en-US")
 
         print("speechd: every advertised language and voice", flush=True)
         for name, language, _ in allVoices:

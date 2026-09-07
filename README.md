@@ -7,9 +7,11 @@ It speaks, and it spoke IBM's own samples: the audio came out byte for byte iden
     make
     ./build/evv -o hello.wav "Hello from Eloquence."
 
-That wants a C compiler, Python, and about a quarter of an hour, most of it compiling the rules. `make RULES=bytecode` is the same engine in half a minute, saying the same samples; it runs the rules interpreted rather than compiled, which costs rather more than half the speed. On Linux nothing plays the audio yet, so the engine writes a wave file; pipe it into a player to hear it at once:
+That wants a C compiler, Python, and about a quarter of an hour, most of it compiling the rules. `make RULES=bytecode` is the same engine in half a minute, saying the same samples; it runs the rules interpreted rather than compiled, which costs rather more than half the speed. On Linux this command writes a wave file rather than playing it; pipe it into a player to hear it at once:
 
     ./build/evv "Hello from Eloquence." | aplay -q -
+
+For desktop and screen-reader speech there is a native Speech Dispatcher output module: `make speechd` builds it, it hands its samples back to Speech Dispatcher rather than opening a device, and it offers every language in the build with its eight voices. `docs/speech-dispatcher.md` says how to install it, how to try it without installing it, and what it does not do.
 
 On Windows there is a speak window. Take `evvspeak.exe` from the latest release, type something, pick one of the eight voices, and hear it; `evv.exe` beside it is the same engine on the command line. One file each, nothing to install, and `make win` builds both from here with mingw.
 
@@ -29,7 +31,7 @@ It reads SSML. A document goes in and the annotations the engine already underst
 
 ## Documentation
 
-`docs/using.md` is how to use the engine in your own program, `docs/api.md` the published interface call by call, and `docs/quirks.md` the things that cost an afternoon if nobody says them first; those three are for someone building against this rather than on it. `docs/building.md` is what you need, what to build, and what every variable does. `docs/rules.md` is the rules, in all three forms, and how a rule of ours is written and proved. `docs/language.md` is everything else in a language module, and what it takes to add one. `docs/testing.md` is what proves any of it. `docs/windows.md` is the Windows side, the library and the screen reader add-on. `docs/tree.md` says what every directory is for, and `docs/status.md` what works, what does not, and what has not been started. `docs/notes` is the finished results, one to a file, which are the answers rather than the state: Polish, SSML, the crashing strings, the sample rates, a language module as text, and the comparison against Apple's Eloquence.
+`docs/using.md` is how to use the engine in your own program, `docs/api.md` the published interface call by call, and `docs/quirks.md` the things that cost an afternoon if nobody says them first; those three are for someone building against this rather than on it. `docs/building.md` is what you need, what to build, and what every variable does. `docs/rules.md` is the rules, in all three forms, and how a rule of ours is written and proved. `docs/language.md` is everything else in a language module, and what it takes to add one. `docs/testing.md` is what proves any of it. `docs/windows.md` is the Windows side, the library and the screen reader add-on. `docs/speech-dispatcher.md` is the Linux one: the Speech Dispatcher output module, how to install it and what it does not do. `docs/tree.md` says what every directory is for, and `docs/status.md` what works, what does not, and what has not been started. `docs/notes` is the finished results, one to a file, which are the answers rather than the state: Polish, SSML, the crashing strings, the sample rates, a language module as text, and the comparison against Apple's Eloquence.
 
 ## Licence and provenance
 

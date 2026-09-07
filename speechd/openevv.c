@@ -37,6 +37,13 @@ typedef struct {
     const char *tag;
     const char *locale;
     const char *name;
+    /* Whether the engine wants this language's text as UTF-8 rather than as
+     * the single bytes of its own code set. A language that declares code
+     * points of its own -- which is Polish and none of the nine IBM shipped
+     * -- has its text converted by the engine itself, so converting it here
+     * as well would turn every letter the Western set has not got into a
+     * question mark before the engine ever saw it. */
+    int wantsUtf8;
 } LanguageInfo;
 
 typedef struct {
@@ -58,15 +65,22 @@ typedef struct {
     size_t capacity;
 } TextBuffer;
 
+/* Japanese is deliberately not here, though it builds and speaks. Its text is
+ * Shift-JIS, EUC-JP or one of three seven-bit JIS sets and its romanizer
+ * recodes whichever it was given; none of those is UTF-8, and there is no
+ * converter in this module for them. Advertising it would offer a screen
+ * reader a language this module would mis-speak, which is worse than not
+ * offering it. */
 static const LanguageInfo knownLanguages[] = {
-    { 0x00010000, "enus", "en-US", "American English" },
-    { 0x00010001, "engb", "en-GB", "British English" },
-    { 0x00020000, "eses", "es-ES", "Castilian Spanish" },
-    { 0x00020001, "esus", "es-MX", "Mexican Spanish" },
-    { 0x00030000, "frfr", "fr-FR", "French" },
-    { 0x00030001, "frca", "fr-CA", "Canadian French" },
-    { 0x00040000, "dede", "de-DE", "German" },
-    { 0x00050000, "itit", "it-IT", "Italian" },
+    { 0x00010000, "enus", "en-US", "American English",     0 },
+    { 0x00010001, "engb", "en-GB", "British English",      0 },
+    { 0x00020000, "eses", "es-ES", "Castilian Spanish",    0 },
+    { 0x00020001, "esus", "es-MX", "Mexican Spanish",      0 },
+    { 0x00030000, "frfr", "fr-FR", "French",               0 },
+    { 0x00030001, "frca", "fr-CA", "Canadian French",      0 },
+    { 0x00040000, "dede", "de-DE", "German",               0 },
+    { 0x00050000, "itit", "it-IT", "Italian",              0 },
+    { 0x00110000, "plpl", "pl-PL", "Polish",               1 },
 };
 
 static const char *const voiceNames[VOICES_PER_LANGUAGE] = {
@@ -505,13 +519,31 @@ static int latin1_symbol(unsigned char value)
  * module for punctuation mode none. OpenEVV ordinarily voices many of those
  * retained symbols, so discard non-prosodic symbols without damaging sentence
  * pauses or apostrophes inside words. */
-static void suppress_spoken_punctuation(char *text)
+/* Both walks below judge one byte at a time, which is a character only where
+ * the text is a language's own single-byte code set. Where the engine
+ * converts the text itself the text is still UTF-8 here, and every byte over
+ * 0x7f belongs to a character rather than being one -- and the two ranges
+ * collide exactly: a lead byte of 0xc0 to 0xdf reads as a Latin-1 capital
+ * and a continuation byte of 0xa1 to 0xbf reads as a symbol. So a lowercase
+ * Polish z with a dot would be announced as a capital and have its second
+ * byte replaced by a space. Above 0x7f the answer in UTF-8 is that this byte
+ * is not a character to judge. */
+static int byte_is_a_character(unsigned char value, int utf8)
+{
+    return !utf8 || value < 0x80;
+}
+
+static void suppress_spoken_punctuation(char *text, int utf8)
 {
     unsigned char *at = (unsigned char *)text;
 
     while (*at) {
         unsigned char value = *at;
 
+        if (!byte_is_a_character(value, utf8)) {
+            at++;
+            continue;
+        }
         if (value == '\'' && at > (unsigned char *)text
             && latin1_word_character(at[-1])
             && latin1_word_character(at[1])) {
@@ -525,9 +557,34 @@ static void suppress_spoken_punctuation(char *text)
     }
 }
 
+/* Whether the engine converts this language's text itself, in which case the
+ * text has to reach it as the UTF-8 it arrived as. */
+static int engine_converts_text(void)
+{
+    const LanguageInfo *info = language_info(currentLanguage);
+
+    return info && info->wantsUtf8;
+}
+
+/* The text as the engine in force wants it. A caller of this owns what comes
+ * back either way, so the pass-through is a copy rather than the argument. */
+static char *text_for_engine(const char *text)
+{
+    if (engine_converts_text()) {
+        size_t bytes = strlen(text) + 1;
+        char *copy = malloc(bytes);
+
+        if (copy)
+            memcpy(copy, text, bytes);
+        return copy;
+    }
+    return utf8_to_latin1(text);
+}
+
 static int add_text_with_capitals(const char *text, int suppressPunctuation)
 {
-    char *converted = utf8_to_latin1(text);
+    int utf8 = engine_converts_text();
+    char *converted = text_for_engine(text);
     char *segment;
     char *at;
     int result = 0;
@@ -535,12 +592,13 @@ static int add_text_with_capitals(const char *text, int suppressPunctuation)
     if (!converted)
         return -1;
     if (suppressPunctuation)
-        suppress_spoken_punctuation(converted);
+        suppress_spoken_punctuation(converted, utf8);
     segment = converted;
     for (at = converted; *at && result == 0; at++) {
         char letter[2];
 
         if (settings.capitals == SPD_CAP_NONE
+            || !byte_is_a_character((unsigned char)*at, utf8)
             || !latin1_uppercase((unsigned char)*at))
             continue;
         letter[0] = *at;
