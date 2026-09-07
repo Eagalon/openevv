@@ -227,6 +227,8 @@ static void usage(FILE *f)
 "            hold or zeros, or none to synthesise at the rate instead\n"
 "  -r        take every number above in a person's units instead of the\n"
 "            engine's: words per minute for speed, hertz for pitch\n"
+"  -L ID     speak in the language with that number; -L list names the\n"
+"            ones this build has and stops\n"
 "  -l        say what each voice is set to, and stop\n"
 "  -h        this\n"
 "\n"
@@ -236,8 +238,9 @@ static void usage(FILE *f)
 
 int main(int argc, char **argv)
 {
-    const char *out = NULL, *from = NULL;
+    const char *out = NULL, *from = NULL, *lang = NULL;
     int         voice = 0, real = 0, list = 0, want_rate = -1;
+    int         langlist = 0;
     int         set[V_COUNT];
     char       *text;
     OldInst    *h;
@@ -247,7 +250,7 @@ int main(int argc, char **argv)
     for (i = 0; i < V_COUNT; i++)
         set[i] = -1;
 
-    while ((i = getopt(argc, argv, "o:f:v:s:p:V:R:rlh")) != -1) {
+    while ((i = getopt(argc, argv, "o:f:v:s:p:V:R:L:rlh")) != -1) {
         switch (i) {
         case 'o': out = optarg; break;
         case 'f': from = optarg; break;
@@ -256,6 +259,13 @@ int main(int argc, char **argv)
         case 'p': set[V_PITCH] = atoi(optarg); break;
         case 'V': set[V_VOLUME] = atoi(optarg); break;
         case 'R': want_rate = atoi(optarg); break;
+        case 'L':
+            lang = optarg;
+            /* -L list says what this build has and stops, so it has to be
+               known before any text is read: otherwise it waits on standard
+               input for a sentence it is never going to speak. */
+            langlist = strcmp(optarg, "list") == 0;
+            break;
         case 'r': real = 1; break;
         case 'l': list = 1; break;
         case 'h': usage(stdout); return 0;
@@ -268,7 +278,7 @@ int main(int argc, char **argv)
         return 2;
     }
 
-    if (list)
+    if (list || langlist)
         text = NULL;
     else if (from != NULL) {
         if (strcmp(from, "-") == 0)
@@ -295,7 +305,7 @@ int main(int argc, char **argv)
     /* Where the wave goes is settled before the engine starts, so a mistake
        in it costs nothing. Standard output only when it is not a terminal:
        a wave file down a terminal is a wasted minute and a lot of noise. */
-    if (list)
+    if (list || langlist)
         f = NULL;
     else if (out == NULL || strcmp(out, "-") == 0) {
         if (out == NULL && isatty(1)) {
@@ -318,12 +328,35 @@ int main(int argc, char **argv)
     {
         uint32_t langs[32];
         int      n = 32;
+        int      k;
 
         if (eo_getAvailableLanguages(langs, &n) || n < 1)
             die("the engine has no language in it");
-        h = eo_new();
-        if (h == NULL)
-            h = eo_newEx(langs[0]);
+
+        /* A build may hold more than one language, and without being told
+           which, this command speaks whichever was linked first -- so nine
+           of the ten in a release build could not be reached from here at
+           all. -L names one by the number the interface uses, and -L list
+           says which numbers this build has. cli/probe.c has read
+           EVV_LANGUAGE for the same reason since the gate needed it. */
+        if (langlist) {
+            for (k = 0; k < n; k++)
+                printf("0x%x\n", (unsigned)langs[k]);
+            return 0;
+        }
+        if (lang != NULL) {
+            uint32_t want = (uint32_t)strtoul(lang, NULL, 0);
+
+            for (k = 0; k < n && langs[k] != want; k++)
+                ;
+            if (k == n)
+                die("this build has no such language");
+            h = eo_newEx(want);
+        } else {
+            h = eo_new();
+            if (h == NULL)
+                h = eo_newEx(langs[0]);
+        }
         if (h == NULL)
             die("the engine would not build an instance");
     }
