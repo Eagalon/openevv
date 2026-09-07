@@ -102,4 +102,22 @@ typedef struct ETIappMessageQueue {
     int16_t  post_flag;
 } ETIappMessageQueue;
 
+/* Walking a hash table. The table and its entries stay eci_hash.c's own
+   business; what has to be said out here is how much room a walk takes,
+   because the two places that hold one hold it inside something else -- a
+   field of the user dictionary and a local in its save -- and both used to
+   write IBM's twelve bytes. Twelve is right where a pointer is four. Two of
+   these three fields are pointers, so on sixty-four bits a walk is twice
+   that, and both of those holders were being written past: the dictionary's
+   over the word it keeps for the undo, the save's over its own stack, which
+   is where it was caught. */
+struct Hash;
+struct HashEntry;
+
+typedef struct HashIter {
+    struct Hash      *hash;   /* +0x00 */
+    int32_t           bucket; /* +0x04 */
+    struct HashEntry *entry;  /* +0x08 */
+} HashIter;
+
 #endif

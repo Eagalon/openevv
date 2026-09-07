@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "evv_arena.h"
+#include "eci_objects.h"
 
 /* What a table with nothing asked of it takes. */
 #define DEFAULT_BUCKETS 0xd3
@@ -49,11 +50,8 @@ typedef struct Hash {
     int32_t     unused_0c;
 } Hash;
 
-typedef struct HashIter {
-    Hash      *hash;  /* +0x00 */
-    int32_t    bucket;/* +0x04 */
-    HashEntry *entry; /* +0x08 */
-} HashIter;
+/* HashIter is in eci_objects.h, because the two places that hold one are not
+   here and the room it takes is not twelve bytes on every machine. */
 
 /* Every number below it, which is slow and does not matter: it happens once
    per table and only while one is being made. */

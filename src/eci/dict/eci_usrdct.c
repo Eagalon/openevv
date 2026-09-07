@@ -26,6 +26,7 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include "delta.h"
+#include "eci_objects.h"
 #include "eci_synththread.h"
 #include "evv_abi.h"
 #include "klatt_lang.h"
@@ -74,7 +75,10 @@ typedef struct UserDict {
     char     path[0x108];   /* +0x000, what it was told to load */
     void    *hash;          /* +0x108 */
     int32_t  state;         /* +0x10c */
-    char     iter[0xc];     /* +0x110, one walk at a time, so it lives here */
+    HashIter iter;          /* +0x110, one walk at a time, so it lives here.
+                               Sized by eci_objects.h rather than by IBM's
+                               twelve bytes, which is short by half where a
+                               pointer is eight and wrote over `last'. */
     char     last[UD_LAST_ROOM];  /* +0x11c, the word a lookup took out */
     int32_t  unknown_16c;
 } UserDict;
@@ -377,8 +381,8 @@ THIS int32_t ud_loadDictionary(UserDict *u, delta_state *d, const char *name)
    refusing. */
 THIS int32_t ud_saveDictionary(UserDict *u, const char *name)
 {
-    FILE *f = fopen(name, "wt");
-    char  iter[0xc];
+    FILE    *f = fopen(name, "wt");
+    HashIter iter;
 
     if (f == 0)
         return UD_NO_FILE;
@@ -388,20 +392,20 @@ THIS int32_t ud_saveDictionary(UserDict *u, const char *name)
         return UD_OK;
     }
 
-    if (!hashIterConstruct(iter, u->hash)) {
+    if (!hashIterConstruct(&iter, u->hash)) {
         fclose(f);
         return UD_OK;
     }
 
     do {
-        const char *s = hashIterString(iter);
+        const char *s = hashIterString(&iter);
 
         fwrite(s, 1, strlen(s), f);
         fwrite("\t", 1, 1, f);
-        s = hashIterRef(iter);
+        s = hashIterRef(&iter);
         fwrite(s, 1, strlen(s), f);
         fwrite("\n", 1, 1, f);
-    } while (hashIterNext(iter));
+    } while (hashIterNext(&iter));
 
     fclose(f);
     return UD_OK;
@@ -442,21 +446,21 @@ THIS int32_t ud_findFirst(UserDict *u, const char **word, const char **xlat)
 {
     if (u->hash == 0)
         return UD_NO_TABLE;
-    if (!hashIterConstruct(u->iter, u->hash))
+    if (!hashIterConstruct(&u->iter, u->hash))
         return UD_NO_TABLE;
 
-    *word = hashIterString(u->iter);
-    *xlat = hashIterRef(u->iter);
+    *word = hashIterString(&u->iter);
+    *xlat = hashIterRef(&u->iter);
     return UD_OK;
 }
 
 THIS int32_t ud_findNext(UserDict *u, const char **word, const char **xlat)
 {
-    if (!hashIterNext(u->iter))
+    if (!hashIterNext(&u->iter))
         return UD_NO_TABLE;
 
-    *word = hashIterString(u->iter);
-    *xlat = hashIterRef(u->iter);
+    *word = hashIterString(&u->iter);
+    *xlat = hashIterRef(&u->iter);
     return UD_OK;
 }
 
