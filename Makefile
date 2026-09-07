@@ -275,7 +275,7 @@ ALL_CFLAGS := $(OPT) -std=gnu99 $(INCS) $(WARN) $(LOW) $(TRIM) $(ROMDEFS) \
 OBJDIR  := $(BUILD)/obj-$(RULES)/$(subst $(space),-,$(TAGS))
 OBJECTS := $(patsubst %.c,$(OBJDIR)/%.o,$(notdir $(SOURCES)))
 
-.PHONY: all probe so so32 sotest phonemes dict dictfile objects stubs rules missing install install-lib clean evv32 probe32 instances interrupt landing rate rates voices inikeys stopthread pieces prims ipa xmltok ssml romcan romprims
+.PHONY: all probe so so32 sotest phonemes dict dictfile objects stubs rules missing install install-lib clean evv32 probe32 instances interrupt landing rate rates voices inikeys stopthread pieces prims ipa xmltok ssml romcan romprims speechd speechd-install speechd-test speechd-test-all
 all: $(BUILD)/evv
 
 $(BUILD)/evv: cli/evv.c $(BUILD)/libevv$(SUF).a $(RULESTAMP)
@@ -455,6 +455,49 @@ voices: $(BUILD)/voices
 $(BUILD)/voices: test/harness/voices.c $(BUILD)/libevv.a
 	@$(CC) $(ALL_CFLAGS) test/harness/voices.c $(BUILD)/libevv.a -lpthread -lm -o $@
 	@echo "built $@"
+
+# A native Speech Dispatcher output module, which is what makes the engine a
+# voice a screen reader can choose rather than something driven through a
+# shim. It hands its samples back to the server and opens no device itself,
+# so it needs Speech Dispatcher's headers and its out-of-tree module helper
+# and nothing that plays sound. speechd/spd_audio.h is a shim for one header
+# spd_module_main.h includes and Speech Dispatcher 0.12 does not install.
+#
+# The library directory comes from pkg-config and is repeated as an rpath,
+# because a store path is not on any system link path and the binary has to
+# find the helper again when the server runs it. On a distribution that keeps
+# its libraries where the linker already looks, pkg-config answers nothing
+# here and the line is what it always was.
+SPEECHD_CFLAGS ?= $(shell pkg-config --cflags speech-dispatcher 2>/dev/null)
+SPEECHD_LIBDIRS := $(shell pkg-config --libs-only-L speech-dispatcher 2>/dev/null \
+                     | sed 's|-L\([^ ]*\)|-L\1 -Wl,-rpath,\1|g')
+SPEECHD_LIBS   ?= $(SPEECHD_LIBDIRS) -lspeechd_module
+
+speechd: $(BUILD)/sd_openevv$(SUF)
+
+$(BUILD)/sd_openevv$(SUF): speechd/openevv.c speechd/spd_audio.h \
+                           $(BUILD)/libevv$(SUF).a $(RULESTAMP)
+	@$(CC) $(ALL_CFLAGS) -Ispeechd $(SPEECHD_CFLAGS) speechd/openevv.c \
+	   $(BUILD)/libevv$(SUF).a $(SPEECHD_LIBS) -lpthread -lm -o $@
+	@echo "built $@"
+
+# The module driven over its own protocol, which is the only way to check it
+# without a server: the server's own symbol preprocessing and its audio
+# backend are not in the path here, so what this proves is that the module
+# says the right thing and never lets a control sequence become speech.
+speechd-test: $(BUILD)/sd_openevv$(SUF) $(BUILD)/evv
+	@OPENEVV_EXPECT_LANGUAGES=$(if $(SPEECHD_LANGUAGES),$(SPEECHD_LANGUAGES),$(words $(LANGS))) \
+	   python3 test/speechd.py $(BUILD)/sd_openevv$(SUF) speechd/openevv.conf
+
+# And with every language in it, which is the configuration a release ships.
+# Ten are linked and nine are advertised: Japanese builds and speaks but its
+# text is not UTF-8 in any of its three code sets, and speechd/openevv.c says
+# why it is deliberately not offered. So the count is stated rather than taken
+# from LANGS, and a language that stopped being advertised would fail here.
+speechd-test-all:
+	@$(MAKE) RULES=$(RULES) SPEECHD_LANGUAGES=9 \
+	   LANGS="lang/enus lang/engb lang/dede lang/eses lang/esus lang/frfr lang/frca lang/itit lang/plpl lang/jajp" \
+	   speechd-test
 
 # A dictionary read in from a file, which nothing else here does: cli/probe.c
 # makes one and puts it in force but never loads one, and the reference
@@ -909,6 +952,7 @@ clean:
 	        $(BUILD)/libevv-win32$(SUF).a $(BUILD)/evv $(BUILD)/probe$(SUF) \
 	        $(BUILD)/evv32 $(BUILD)/probe32$(SUF) \
 	        $(BUILD)/libevv$(SUF).a $(BUILD)/libevv32$(SUF).a \
+	        $(BUILD)/sd_openevv* \
 	        $(BUILD)/libevv-win$(SUF).a \
 	        $(BUILD)/evv.exe $(BUILD)/evvspeak.exe $(BUILD)/eci.dll \
 	        $(BUILD)/eci.ini $(BUILD)/dlltest.exe $(BUILD)/syms.txt \
@@ -921,10 +965,26 @@ PREFIX  ?= /usr/local
 LIBDIR  ?= $(PREFIX)/lib
 INCDIR  ?= $(PREFIX)/include
 
+# The Speech Dispatcher module has paths of its own, so a packager can put it
+# where their own Speech Dispatcher looks for modules.
+SPEECHD_MODULEDIR ?= $(PREFIX)/libexec/speech-dispatcher-modules
+SPEECHD_CONFDIR   ?= $(PREFIX)/etc/speech-dispatcher/modules
+
 install: $(BUILD)/evv
 	@mkdir -p $(DESTDIR)$(PREFIX)/bin
 	@cp $(BUILD)/evv $(DESTDIR)$(PREFIX)/bin/evv
 	@echo "installed $(DESTDIR)$(PREFIX)/bin/evv"
+
+# This one is not part of `make install': it writes into Speech Dispatcher's
+# own directories, and putting a module there is a decision about somebody's
+# speech rather than a build step. It still does not edit speechd.conf, which
+# is the line a person has to add themselves.
+speechd-install: $(BUILD)/sd_openevv$(SUF)
+	@mkdir -p $(DESTDIR)$(SPEECHD_MODULEDIR) $(DESTDIR)$(SPEECHD_CONFDIR)
+	@cp $(BUILD)/sd_openevv$(SUF) $(DESTDIR)$(SPEECHD_MODULEDIR)/sd_openevv
+	@cp speechd/openevv.conf $(DESTDIR)$(SPEECHD_CONFDIR)/openevv.conf
+	@echo "installed $(DESTDIR)$(SPEECHD_MODULEDIR)/sd_openevv"
+	@echo "installed $(DESTDIR)$(SPEECHD_CONFDIR)/openevv.conf"
 
 # And what a program links against, which is a separate target because it is
 # a separate build: `make so' first. The real file carries the version and

@@ -134,6 +134,18 @@ jobs:
       - name: Check the words the original cannot say
         run: make crashers
 
+      # The Speech Dispatcher module, driven over its own protocol with no
+      # server and no sound. It wants Speech Dispatcher's headers and its
+      # out-of-tree module helper, which is all libspeechd-dev is here for --
+      # nothing in this step plays anything or starts a daemon.
+      - name: Get the Speech Dispatcher module headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libspeechd-dev pkg-config
+
+      - name: Check the Speech Dispatcher module, every language
+        run: make -j"$(nproc)" RULES=bytecode speechd-test-all
+
       - name: Check a rate change keeps the caller's buffer
         run: make RULES=bytecode rate
 
