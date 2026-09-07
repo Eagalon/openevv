@@ -98,6 +98,10 @@ A set holds `eciMainDict`, `eciRootDict` and `eciAbbvDict`, and then `eciMainDic
 
 One asymmetry in IBM's own switch is carried here because it is IBM's: Chinese in code set two reaches the extended volume in its second dialect and not its first. No build of this tree can show it, there being no Chinese in this SDK at all.
 
+## A dictionary can be loaded from a file here and not in IBM's engine
+
+`eciLoadDict` and `eciSaveDict` answer `eciDictNotSupported` in IBM's engine whatever they are handed, and did from the day they were published. Here they work, which is the nineteenth deliberate divergence: they go through to the volume calls the newer interface has, which the layer below always implemented. A program meant to work against both engines cannot rely on either name, and has no other way in through the older interface -- the per-entry calls are not exported by it. `make dictfile` is the check.
+
 ## Asking for phonemes
 
 `eciGeneratePhonemes` will answer nought and look broken unless three things are true, and the first two are IBM's own tests rather than advice. A callback has to be registered, because that is the only way the phonemes can arrive. `eciSynthMode` has to be one, because the call walks the queue that mode builds. And the text has to have been added first.
