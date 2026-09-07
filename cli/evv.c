@@ -16,6 +16,8 @@
 #include <time.h>
 #if defined(_WIN32)
 #include <windows.h>
+#include <fcntl.h>
+#include <io.h>
 #endif
 #include <unistd.h>
 
@@ -246,6 +248,21 @@ int main(int argc, char **argv)
     OldInst    *h;
     FILE       *f;
     int         i;
+
+#if defined(_WIN32)
+    /* Windows opens the standard channels in text mode, which is fatal to a
+       wave: every 0x0A written grows a 0x0D in front of it, the same pair is
+       collapsed again on the way in, and a 0x1A read counts as end of file.
+       So `evv -o -' handed back a wave a third of a second longer than the
+       one `-o file' wrote -- 39,217 bytes against 38,874, which is exactly
+       the 343 newline bytes the samples happened to contain -- and it
+       sounded like speech under loud noise. The input wants the same
+       treatment: the text arrives one byte a character and a 0x1A in it is
+       not the end of anything. Unix draws no such distinction, which is why
+       this was only ever wrong on Windows. */
+    _setmode(_fileno(stdout), _O_BINARY);
+    _setmode(_fileno(stdin), _O_BINARY);
+#endif
 
     for (i = 0; i < V_COUNT; i++)
         set[i] = -1;
