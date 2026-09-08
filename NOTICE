@@ -52,6 +52,15 @@ their readings, the substitution tables that make romaji, and the codeset
 conversion tables. `tools/rom/dictionary.py` and `tools/rom/tables.py` are what
 lift it, and both read IBM's objects rather than being typed out here.
 
+`lang/urpk` says Urdu and is Italian, in exactly the sense the paragraph below
+says of Polish and for the same reason: IBM never shipped Urdu either, so it was
+made by copying `lang/itit`'s text forms and renaming them, and every rule and
+every table in it is IBM's Italian data until something written here has
+replaced it. It is byte for byte Italian as it stands -- the same sentence
+spoken by both comes to the same 39,875 samples and the same hash -- which is
+the honest statement of what it is rather than a defect. `make EVVLANG=lang/urpk
+census` is what says how much of it is still Italian.
+
 `lang/plpl` says Polish and is Italian. It was made by copying `lang/itit`'s
 text forms and renaming them, because a language IBM never shipped has to start
 from one it did, and every rule and every table in it is IBM's Italian data
