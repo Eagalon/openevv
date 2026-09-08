@@ -23,8 +23,11 @@
 #include <string.h>
 
 #include "sapi_tts.h"
-#include "../src/evv_abi.h"
-#include "../src/delta_lang.h"
+/* Bare names, as everything in src is included: the Makefile works the
+   include path out from the directories on disk, so a header that moves
+   between groups -- both of these did -- costs no line here. */
+#include "evv_abi.h"
+#include "delta_lang.h"
 
 typedef struct OldInst OldInst;
 
@@ -134,6 +137,7 @@ static const struct {
     { 0x030001, L"c0c"  },   /* Canadian French        fr-CA */
     { 0x040000, L"407"  },   /* German                 de-DE */
     { 0x050000, L"410"  },   /* Italian                it-IT */
+    { 0x080000, L"411"  },   /* Japanese               ja-JP */
     { 0x110000, L"415"  }    /* Polish                 pl-PL */
 };
 
