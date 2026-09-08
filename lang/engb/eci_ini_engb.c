@@ -4,7 +4,7 @@
  * of 0xff on the end. Lines are separated by a nought rather than a newline,
  * which is why the reader in eci_iniread.c stops on either.
  *
- * Lifted byte for byte out of the original by tools/lift-ini.py rather than
+ * Lifted byte for byte out of the original by tools/module/settings.py rather than
  * retyped, because the reader's arithmetic depends on the exact separators.
  */
 
@@ -216,7 +216,7 @@ const int32_t engb_eciIniSize = 3117;
    array calls the copy linked into the image. The original
    spells both into getLibraryName, which answers with the
    name only when it is asked about this language; here they
-   are data, so that src/eci_engarray.c is the same code
+   are data, so that src/eci/api/eci_engarray.c is the same code
    whichever language is built beside it. */
 const int32_t engb_eci_library_lang = 0x10001;
 const char engb_eci_library_name[] = "Static Engine ENG";

@@ -16,6 +16,8 @@
 #include <time.h>
 #if defined(_WIN32)
 #include <windows.h>
+#include <fcntl.h>
+#include <io.h>
 #endif
 #include <unistd.h>
 
@@ -36,7 +38,7 @@ enum ECICallbackReturn {
 };
 
 /* The engine's own parameters, and a voice's. Only the few this needs. */
-enum { P_REAL_WORLD_UNITS = 8 };
+enum { P_SAMPLE_RATE = 5, P_REAL_WORLD_UNITS = 8 };
 enum { V_GENDER, V_HEAD_SIZE, V_PITCH, V_FLUCTUATION, V_ROUGHNESS,
        V_BREATHINESS, V_SPEED, V_VOLUME, V_COUNT };
 
@@ -61,15 +63,22 @@ void     STDCALL eo_synchronizeSynth(OldInst *h);
 int      STDCALL eo_speaking(OldInst *h);
 int      STDCALL eo_getAvailableLanguages(uint32_t *out, int *count);
 
+/* What a sample rate setting comes to in hertz. One definition, in
+   src/eci/api/eci_env.c, so the wave header cannot disagree with the engine. */
+int32_t  ev_rateHz(int32_t rate);
+
 void evvRunStaticInitialisers(void);
 void evv_port_start(void);
 void evv_port_finish(void);
 
-/* The formant voice runs at eleven thousand and twenty-five samples a second
-   and nothing here changes that. The engine's sample rate parameter belongs
-   to the concatenative voices, which this extraction does not have. */
+/* What the engine runs at unless -R says otherwise. Eleven thousand and
+   twenty five is what Eloquence has always sounded like and is what the
+   samples in test/samples.sha256 are. */
 #define RATE  11025
 #define FRAME 2048
+
+/* What -R settled on, and what goes into the wave header. */
+static unsigned long rate = RATE;
 
 static short  frame[FRAME];
 static short *samples;
@@ -133,8 +142,8 @@ static void write_wav(FILE *f)
     put32(f, 16);
     put16(f, 1);
     put16(f, 1);
-    put32(f, RATE);
-    put32(f, RATE * 2);
+    put32(f, rate);
+    put32(f, rate * 2);
     put16(f, 2);
     put16(f, 16);
     fwrite("data", 1, 4, f);
@@ -212,8 +221,16 @@ static void usage(FILE *f)
 "  -s N      speed\n"
 "  -p N      pitch\n"
 "  -V N      volume\n"
+"  -R N      sample rate: 0 to 6 for 8000, 11025, 22050, 16000, 32000,\n"
+"            44100 or 48000 hertz, or the rate itself in hertz. Above\n"
+"            11025 the engine still runs at 11025 and the rate is raised\n"
+"            from there, so the voice is the same one at every setting.\n"
+"            EVV_UPSAMPLE says how: sinc by default, or cubic, linear,\n"
+"            hold or zeros, or none to synthesise at the rate instead\n"
 "  -r        take every number above in a person's units instead of the\n"
 "            engine's: words per minute for speed, hertz for pitch\n"
+"  -L ID     speak in the language with that number; -L list names the\n"
+"            ones this build has and stops\n"
 "  -l        say what each voice is set to, and stop\n"
 "  -h        this\n"
 "\n"
@@ -223,18 +240,34 @@ static void usage(FILE *f)
 
 int main(int argc, char **argv)
 {
-    const char *out = NULL, *from = NULL;
-    int         voice = 0, real = 0, list = 0;
+    const char *out = NULL, *from = NULL, *lang = NULL;
+    int         voice = 0, real = 0, list = 0, want_rate = -1;
+    int         langlist = 0;
     int         set[V_COUNT];
     char       *text;
     OldInst    *h;
     FILE       *f;
     int         i;
 
+#if defined(_WIN32)
+    /* Windows opens the standard channels in text mode, which is fatal to a
+       wave: every 0x0A written grows a 0x0D in front of it, the same pair is
+       collapsed again on the way in, and a 0x1A read counts as end of file.
+       So `evv -o -' handed back a wave a third of a second longer than the
+       one `-o file' wrote -- 39,217 bytes against 38,874, which is exactly
+       the 343 newline bytes the samples happened to contain -- and it
+       sounded like speech under loud noise. The input wants the same
+       treatment: the text arrives one byte a character and a 0x1A in it is
+       not the end of anything. Unix draws no such distinction, which is why
+       this was only ever wrong on Windows. */
+    _setmode(_fileno(stdout), _O_BINARY);
+    _setmode(_fileno(stdin), _O_BINARY);
+#endif
+
     for (i = 0; i < V_COUNT; i++)
         set[i] = -1;
 
-    while ((i = getopt(argc, argv, "o:f:v:s:p:V:rlh")) != -1) {
+    while ((i = getopt(argc, argv, "o:f:v:s:p:V:R:L:rlh")) != -1) {
         switch (i) {
         case 'o': out = optarg; break;
         case 'f': from = optarg; break;
@@ -242,6 +275,14 @@ int main(int argc, char **argv)
         case 's': set[V_SPEED] = atoi(optarg); break;
         case 'p': set[V_PITCH] = atoi(optarg); break;
         case 'V': set[V_VOLUME] = atoi(optarg); break;
+        case 'R': want_rate = atoi(optarg); break;
+        case 'L':
+            lang = optarg;
+            /* -L list says what this build has and stops, so it has to be
+               known before any text is read: otherwise it waits on standard
+               input for a sentence it is never going to speak. */
+            langlist = strcmp(optarg, "list") == 0;
+            break;
         case 'r': real = 1; break;
         case 'l': list = 1; break;
         case 'h': usage(stdout); return 0;
@@ -254,7 +295,7 @@ int main(int argc, char **argv)
         return 2;
     }
 
-    if (list)
+    if (list || langlist)
         text = NULL;
     else if (from != NULL) {
         if (strcmp(from, "-") == 0)
@@ -281,7 +322,7 @@ int main(int argc, char **argv)
     /* Where the wave goes is settled before the engine starts, so a mistake
        in it costs nothing. Standard output only when it is not a terminal:
        a wave file down a terminal is a wasted minute and a lot of noise. */
-    if (list)
+    if (list || langlist)
         f = NULL;
     else if (out == NULL || strcmp(out, "-") == 0) {
         if (out == NULL && isatty(1)) {
@@ -304,12 +345,35 @@ int main(int argc, char **argv)
     {
         uint32_t langs[32];
         int      n = 32;
+        int      k;
 
         if (eo_getAvailableLanguages(langs, &n) || n < 1)
             die("the engine has no language in it");
-        h = eo_new();
-        if (h == NULL)
-            h = eo_newEx(langs[0]);
+
+        /* A build may hold more than one language, and without being told
+           which, this command speaks whichever was linked first -- so nine
+           of the ten in a release build could not be reached from here at
+           all. -L names one by the number the interface uses, and -L list
+           says which numbers this build has. cli/probe.c has read
+           EVV_LANGUAGE for the same reason since the gate needed it. */
+        if (langlist) {
+            for (k = 0; k < n; k++)
+                printf("0x%x\n", (unsigned)langs[k]);
+            return 0;
+        }
+        if (lang != NULL) {
+            uint32_t want = (uint32_t)strtoul(lang, NULL, 0);
+
+            for (k = 0; k < n && langs[k] != want; k++)
+                ;
+            if (k == n)
+                die("this build has no such language");
+            h = eo_newEx(want);
+        } else {
+            h = eo_new();
+            if (h == NULL)
+                h = eo_newEx(langs[0]);
+        }
         if (h == NULL)
             die("the engine would not build an instance");
     }
@@ -351,6 +415,17 @@ int main(int argc, char **argv)
     eo_registerCallback(h, (void *)on_message, NULL);
     if (!ev_setOutputBuffer(h, FRAME, frame))
         die("the engine refused a sample buffer");
+
+    /* And the rate after the buffer, because setting it rebuilds whatever
+       the samples are going to and there has to be something to rebuild. */
+    if (want_rate >= 0) {
+        if (ev_setParam(h, P_SAMPLE_RATE, want_rate) < 0) {
+            fprintf(stderr, "evv: the engine refused sample rate %d\n",
+                    want_rate);
+            return 1;
+        }
+        rate = (unsigned long)ev_rateHz(want_rate);
+    }
 
     if (!et_addText(h, text))
         die("the engine refused the text");

@@ -16,10 +16,15 @@
       };
     in {
       # `nix build' and `nix run'. The ordinary make, which wants a C
-      # compiler and nothing else, so this is the plain stdenv and no inputs.
+      # compiler and Python: the rules a build compiles are written out of the
+      # text in lang/<tag>/rules rather than kept beside it, and the default
+      # build decompiles them into C after that. Nothing else, so the plain
+      # stdenv otherwise.
       packages.${system}.default = pkgs.stdenv.mkDerivation {
         name = "openevv";
         src = self;
+
+        nativeBuildInputs = [ pkgs.python3 ];
 
         # -no-pie is in the Makefile, where it belongs: the machine keeps host
         # addresses in thirty-two bit values, so the program has to sit low
@@ -53,7 +58,7 @@
           pkgs.pkgsCross.mingw32.buildPackages.gcc
           pkgs.pkgsCross.mingw32.buildPackages.binutils
 
-          # Builds the Windows release: the same engine with src/port_win32.c
+          # Builds the Windows release: the same engine with src/port/port_win32.c
           # standing in for the POSIX layer, linked static so what ships is one
           # file.
           pkgs.pkgsCross.mingwW64.buildPackages.gcc
@@ -74,6 +79,17 @@
           pkgs.gcc
           pkgs.gnumake
           pkgs.python3
+
+          # The Speech Dispatcher output module compiles against Speech
+          # Dispatcher's own headers and links its out-of-tree module helper.
+          # Headers and a library, nothing else: the module hands its samples
+          # back to the server rather than opening a device, so building it
+          # here neither needs a running server nor touches one.
+          pkgs.speechd
+          pkgs.pkg-config
+          # speech-dispatcher.pc requires glib-2.0, so pkg-config cannot
+          # answer for it without glib's own .pc beside it.
+          pkgs.glib.dev
         ];
 
         shellHook = ''

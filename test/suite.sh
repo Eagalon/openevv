@@ -4,7 +4,7 @@
 # by IBM's own under Wine, and the samples compared.
 # Answers non-zero if anything differed or hung.
 #
-# usage: suite.sh [name ...]     with no names, runs all but long
+# usage: test/suite.sh [name ...]     with no names, runs all but long
 
 set -u
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -37,6 +37,10 @@ esac
 
 TEXT='^speak: (voice )?param|^speak: index'
 DICT='^speak: (voice )?param|^speak: index|^speak: (new|set|get|load|delete)Dict'
+# What the SSML reader answered, which is the whole point of that category:
+# the annotations it made are text, so they are compared as text rather than
+# only through the samples they turn into.
+SSML='^speak: (registerFilter|newFilter|activateFilter|getFilteredText|filtered)'
 
 run() {
     local name=$1; shift
@@ -46,7 +50,7 @@ run() {
 }
 
 bad=0
-want=${*:-plain utf8 anno anno3 realworld dict}
+want=${*:-plain utf8 anno anno3 realworld dict second ssml}
 
 for one in $want; do
     case $one in
@@ -57,6 +61,26 @@ for one in $want; do
     realworld) run realworld "$cases/anno$suf.txt"  ar   "$TEXT" || bad=1 ;;
     long)      run long      "$cases/long$suf.txt"  ""   ""      || bad=1 ;;
     dict)      run dict      "$cases/plain$suf.txt" ard  "$DICT" || bad=1 ;;
+    # The same sentence twice on one instance. The engine's second utterance
+    # is not its first -- the machine's state has moved on -- and it is
+    # deterministic, so the question is whether it has moved on the way IBM's
+    # does. Both binaries write the second beside the first and compare.sh
+    # holds both pairs against each other. This is what blesses the `second'
+    # category of test/matrix.sh.
+    second)    run second    "$cases/plain$suf.txt" t    ""      || bad=1 ;;
+    # A document rather than a sentence, read as SSML and then spoken. Both
+    # binaries register the filter that is in their own objects, so what is
+    # compared is two readers as well as two engines: the annotations each
+    # made, and the samples those turned into. This is what blesses the
+    # `ssml' category of test/matrix.sh.
+    # Every language has documents of its own now, so a missing file is a
+    # missing file; this says so rather than passing quietly.
+    ssml)      if [ -r "$cases/ssml$suf.txt" ]; then
+                   run ssml "$cases/ssml$suf.txt" as "$SSML" || bad=1
+               else
+                   printf '%-10s no documents for %s\n' ssml "$lang"
+                   bad=1
+               fi ;;
     *) echo "suite: no such comparison: $one" >&2; bad=1 ;;
     esac
 done
