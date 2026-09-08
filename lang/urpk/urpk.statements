@@ -77,6 +77,48 @@ statement inp
   variants 00 00 00 01 00 00 00 00 01 00 00 00 00 01 00 00 00 00 01 00 00 00 00 01 00 00 00 00 01 00 00 00
   variants 00 01 00 00 00 00 01 00 00 00 00 01 00 00 00 00 01 00 00 00 00 01 00 00 00 00 01 00 00 00 00 01
   variants 00 00 00 00 01 00 00 00 00 01 00 00 00 00 00 00
+  variants 01 01 01 01 1e
+  variants 01 01 02 01 01
+  variants 01 01 02 01 02
+  variants 01 01 02 01 04
+  variants 01 01 02 01 04
+  variants 01 01 02 01 0a
+  variants 01 01 02 01 0d
+  variants 01 01 02 01 0e
+  variants 01 01 01 01 1e
+  variants 01 01 02 01 01
+  variants 01 01 02 01 02
+  variants 01 01 02 01 04
+  variants 01 01 02 01 04
+  variants 01 01 02 01 0a
+  variants 01 01 02 01 0d
+  variants 01 01 02 01 0e
+  variants 01 01 02 01 00
+  variants 01 01 02 01 05
+  variants 01 01 02 01 03
+  variants 01 01 02 01 03
+  variants 01 01 02 01 09
+  variants 01 01 02 01 15
+  variants 01 01 02 01 16
+  variants 01 01 02 01 0b
+  variants 01 01 02 01 0c
+  variants 01 01 02 01 00
+  variants 01 01 02 01 06
+  variants 01 01 02 01 08
+  variants 01 01 02 01 05
+  variants 01 01 02 01 05
+  variants 01 01 02 01 06
+  variants 01 01 02 01 17
+  variants 01 01 02 01 11
+  variants 01 01 02 01 12
+  variants 01 01 02 01 14
+  variants 01 01 02 01 1a
+  variants 01 01 02 01 00
+  variants 01 01 02 01 19
+  variants 01 01 01 01 1c
+  variants 01 01 01 01 1e
+  variants 01 01 01 01 1b
+  variants 01 01 01 01 1f
   field name
     where 5 5 1
     what -1 1 0
@@ -288,6 +330,48 @@ statement inp
     value ¯
     value µ
     value ¶
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
+    value 
     end
   field letcase
     where 0 0 1

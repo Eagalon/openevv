@@ -1,0 +1,59 @@
+# What each of Urdu's own characters arrives as: the code point a caller
+# writes, and the byte its alphabet knows that character by. The bytes were
+# free in the alphabet Italian brought; tools/module/alphabet.py show urpk
+# says what each one is now.
+#
+# One byte per sound rather than per letter. Urdu writes one sound several
+# ways -- s three, z four -- and there were fifty bytes free, which is not a
+# letter each. Letters that sound the same share a byte, which costs the
+# engine being able to tell them apart when spelling a word out and costs
+# nothing when saying one.
+#
+# The letters and their sounds are from references/g2ps/Urdu, which is MIT.
+# Where Urdu makes a distinction this chassis has not got -- the retroflexes,
+# the aspirates, /h/, /x/, /q/ -- the letter has a byte of its own so a rule
+# can see it later, and the nearest sound Italian has until then.
+
+0621 1d   # ain and hamza, both silent here
+0622 0b   # alef and alef madda
+0627 0b   # alef and alef madda
+0628 0c   # be
+062a 0f   # te and toe, dental
+062b 11   # sin, se, suad
+062c 12   # jim
+062d 14   # bari he and he -- /h/, absent here
+062e 15   # khe -- /x/, k until there is one
+062f 16   # dal, dental
+0630 18   # ze, zal, zuad, zoe
+0631 19   # re, a tap
+0632 18   # ze, zal, zuad, zoe
+0633 11   # sin, se, suad
+0634 1c   # shin
+0635 11   # sin, se, suad
+0636 18   # ze, zal, zuad, zoe
+0637 0f   # te and toe, dental
+0638 18   # ze, zal, zuad, zoe
+0639 1d   # ain and hamza, both silent here
+063a 1e   # ghain -- a voiced velar fricative
+0641 1f   # fe
+0642 7f   # qaf -- uvular, k until there is a q
+0644 84   # lam
+0645 86   # mim
+0646 87   # nun
+0648 89   # vao, which is also a vowel
+064e 8f   # zabar, short a
+064f 91   # pesh, short u
+0650 90   # zer, short i
+0679 10   # tte, retroflex -- t until T sounds
+067e 0e   # pe
+0686 13   # che
+0688 17   # ddal, retroflex -- d until D sounds
+0691 1a   # rre, the retroflex flap
+0698 1b   # zhe
+06a9 82   # kaf
+06af 83   # gaf
+06ba 88   # nun ghunna -- no nasal vowels yet
+06be 8b   # do chashmi he, which makes the aspirates
+06c1 14   # bari he and he -- /h/, absent here
+06cc 8d   # ye, which is also a vowel
+06d2 8e   # bari ye
