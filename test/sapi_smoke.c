@@ -303,6 +303,11 @@ typedef struct FakeKey {
     ISpDataKey vt;
     LONG refs;
     const wchar_t *voice;
+    /* The engine's own number for the language, as the registered token
+       carries it. Without this the wrapper cannot be asked for anything but
+       the first language a build has, which is what let a voice list full of
+       languages all come out speaking the first one. */
+    const wchar_t *lang;
 } FakeKey;
 
 static HRESULT STDMETHODCALLTYPE key_qi(ISpDataKey *self_, REFIID riid,
@@ -353,6 +358,8 @@ static HRESULT STDMETHODCALLTYPE key_get_string(ISpDataKey *self_,
 
     if (wcscmp(name, L"Voice") == 0)
         answer = k->voice;
+    else if (wcscmp(name, L"EvvLang") == 0)
+        answer = k->lang;
     else if (wcscmp(name, L"Language") == 0)
         answer = L"409";
     if (answer == NULL)
@@ -492,7 +499,7 @@ static ISpObjectTokenVtbl token_vtbl = {
     (HRESULT(STDMETHODCALLTYPE *)(ISpObjectToken *, LPCWSTR, BOOL *))key_no
 };
 
-static FakeToken *make_token(int voice)
+static FakeToken *make_token(int voice, const char *lang)
 {
     FakeToken *t = calloc(1, sizeof *t);
     wchar_t num[8];
@@ -512,6 +519,22 @@ static FakeToken *make_token(int voice)
 
         t->attrs.voice = malloc(bytes);
         wcscpy((wchar_t *)t->attrs.voice, num);
+    }
+    /* The language, as the registry carries it: the engine's own number in
+       hex. Absent unless asked for, so the default run is the one language
+       every build has and this test says nothing new about it. */
+    t->attrs.lang = NULL;
+    if (lang != NULL) {
+        wchar_t w[16];
+        SIZE_T  bytes;
+        int     i;
+
+        for (i = 0; lang[i] != 0 && i < 15; i++)
+            w[i] = (wchar_t)(unsigned char)lang[i];
+        w[i] = 0;
+        bytes = (wcslen(w) + 1) * sizeof(wchar_t);
+        t->attrs.lang = malloc(bytes);
+        wcscpy((wchar_t *)t->attrs.lang, w);
     }
     return t;
 }
@@ -569,6 +592,7 @@ int main(int argc, char **argv)
     const wchar_t *text =
         L"The quick brown fox jumps over the lazy dog.";
     int voice = 1;
+    const char *lang = NULL;
     long rate = 0;
     int abort_after = -1;
     int stress = 0;
@@ -593,6 +617,8 @@ int main(int argc, char **argv)
             out = argv[++i];
         else if (strcmp(argv[i], "-v") == 0 && i + 1 < argc)
             voice = atoi(argv[++i]);
+        else if (strcmp(argv[i], "-L") == 0 && i + 1 < argc)
+            lang = argv[++i];
         else if (strcmp(argv[i], "-r") == 0 && i + 1 < argc)
             rate = atol(argv[++i]);
         else if (strcmp(argv[i], "--abort-after") == 0 && i + 1 < argc)
@@ -655,7 +681,7 @@ int main(int argc, char **argv)
     ms->writes_before_abort = abort_after;
     site = &ms->vt;
 
-    token = make_token(voice);
+    token = make_token(voice, lang);
     hr = engine->lpVtbl->QueryInterface(engine, &IID_ISpObjectWithToken_,
                                         (void **)&with_token);
     if (hr == S_OK) {

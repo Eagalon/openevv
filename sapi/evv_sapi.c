@@ -346,8 +346,12 @@ static enum ECICallbackReturn STDCALL on_message(OldInst *h,
 
 static HRESULT engine_build(EvvEngine *e)
 {
-    uint32_t langs[8];
-    int n = 8;
+    /* Room for more languages than a build is ever given. Eight was the
+       count of voices, not of languages, and with ten linked in it left the
+       last two unreachable: a token naming one of them found no match and
+       was quietly given the first language instead. */
+    uint32_t langs[32];
+    int n = (int)(sizeof langs / sizeof langs[0]);
     OldInst *h;
 
     if (e->h != NULL)
@@ -987,6 +991,14 @@ HRESULT STDAPICALLTYPE DllRegisterServer(void)
 
     if (!register_clsid())
         return SELFREG_E_CLASS;
+    /* A module states its own number in another translation unit, which C
+       will not take in an initialiser, so the table says nought until this
+       has run. Everything inside the engine reaches a language through a
+       call that binds first; reading delta_languages[] from out here does
+       not, and without this every token was written with a language of
+       nought -- the neutral LCID and an EvvLang of 0 -- so all eighty
+       voices asked for the same language and got the first one. */
+    delta_lang_bind_all();
     /* Every language linked into this build, times the eight voices each of
        them has. delta_languages[] is what the build was made with, so a
        library with one language in it publishes eight voices as before. */
@@ -1004,6 +1016,10 @@ HRESULT STDAPICALLTYPE DllUnregisterServer(void)
     wchar_t sub[160];
     wchar_t tag[32];
     int i, l;
+
+    /* Same reason as in DllRegisterServer: the tags below are static but
+       the walk is over the same table, so bind before reading it. */
+    delta_lang_bind_all();
 
     wsprintfW(sub, L"SOFTWARE\\Classes\\CLSID\\%s", CLSID_STRING);
     RegDeleteTreeW(HKEY_LOCAL_MACHINE, sub);
