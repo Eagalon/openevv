@@ -45,6 +45,12 @@ PAIRS = [
     (u"ʃ", u"S"), (u"ʒ", u"Z"), (u"ŋ", u"G"),
     # Urdu's ɪ and ʊ are lax where Italian's i and u are not, so the lax pair
     # go to the open vowels: dil stays dil instead of stretching into deel.
+    # The lexicon writes a nasal vowel as one character rather than a vowel
+    # and a combining tilde, so stripping the tilde never reaches these and
+    # the whole vowel went missing: ہوں came out as an h and nothing
+    # after it. The module has no nasal vowel, so they say the oral one.
+    (u"ũ", u"u"), (u"ĩ", u"i"), (u"ã", u"a"), (u"õ", u"o"),
+    (u"ẽ", u"e"), (u"ṽ", u"u"),
     (u"ɪ", u"e"), (u"ʊ", u"o"), (u"ə", u"a"), (u"ʌ", u"a"),
     (u"æ", u"E"), (u"ɛ", u"E"), (u"ɔ", u"c"),
     (u"ɑ", u"a"), (u"a", u"a"), (u"e", u"e"), (u"i", u"i"),
@@ -56,7 +62,9 @@ PAIRS = [
     # ones the module has not got: the nearest there is, and /h/ nothing at
     # all, since h is not a phoneme this module declares and an annotation
     # naming one it does not know is spoken aloud rather than refused.
-    (u"x", u"k"), (u"ɣ", u"g"), (u"q", u"k"), (u"h", u""), (u"ɦ", u""),
+    # /h/ is L, which is Italian's gli taken over for it: urdu_ph_h in
+    # is_val.up is what that code speaks now.
+    (u"x", u"k"), (u"ɣ", u"g"), (u"q", u"k"), (u"h", u"L"), (u"ɦ", u"L"),
     (u"ʔ", u""),
 ]
 
@@ -176,5 +184,11 @@ if __name__ == "__main__":
         bare = normalise(w.strip(PUNCT))
         ipa = lex.get(bare) or guessed.get(w) or guessed.get(bare)
         if ipa:
+            # Wiktionary transcribes some words the way they are often said
+            # rather than the way they are written: ہے is given as eː with no
+            # h in it at all. A word beginning with ہ or ح is pronounced with
+            # one, so it is put back rather than lost.
+            if bare[:1] in (u"ہ", u"ح") and ipa[:1] not in (u"h", u"ɦ"):
+                ipa = u"ɦ" + ipa
             said.append(word(ipa))
     print(u" ".join(x for x in said if x))

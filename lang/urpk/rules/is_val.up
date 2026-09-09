@@ -33,3 +33,42 @@ rule urdu_retroflex_Fv takes 1 from is_val.obj
   set f3_out to 2100
   match
 end
+
+# A neutral locus, for a sound made at the glottis.
+#
+# The place vocabulary runs lab, alv, pal, vel and ret, and none of those is
+# the glottis: /h/ is made with the tract open and takes whatever shape the
+# vowel beside it has. There is no way to say that here, so this is the
+# middle of the mouth -- a neutral vowel's formants -- which is the nearest a
+# fixed locus gets to one that has no place of its own.
+rule urdu_glottal_Fv takes 1 from is_val.obj
+  call ZZfence_null
+  set f1_in to 500
+  set f1_out to 500
+  set f2_in to 1500
+  set f2_out to 1500
+  set f3_in to 2500
+  set f3_out to 2500
+  match
+end
+
+# /h/, which Italian has not got and Urdu leans on constantly: ہے and ہوں and
+# every ہ in between were coming out as nothing at all.
+#
+# Written as ital_ph_s is -- the same two frication amplitudes and the same
+# closing value -- and voiceless in the same way, which is by leaving out the
+# store ital_ph_z makes and ital_ph_s does not: 2926, the voicing amplitude.
+# That one word is the whole difference between the two in IBM's own rules,
+# and it is what makes this breath rather than a buzz.
+#
+# It is reached by taking over L, Italian's gli, which no Urdu word wants.
+# The call to it in ital_con_vals points here instead, and L's own record now
+# says a voiceless fricative rather than a lateral.
+rule urdu_ph_h takes 1 from is_val.obj
+  call ZZfence_null
+  set global half 2918 to 300
+  set global half 2922 to 300
+  call urdu_glottal_Fv
+  set global half 2754 to 60
+  match
+end
