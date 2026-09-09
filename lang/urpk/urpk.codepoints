@@ -1,59 +1,61 @@
 # What each of Urdu's own characters arrives as: the code point a caller
-# writes, and the byte its alphabet knows that character by. The bytes were
-# free in the alphabet Italian brought; tools/module/alphabet.py show urpk
-# says what each one is now.
+# writes, and the byte its alphabet knows that character by.
 #
-# One byte per sound rather than per letter. Urdu writes one sound several
-# ways -- s three, z four -- and there were fifty bytes free, which is not a
-# letter each. Letters that sound the same share a byte, which costs the
-# engine being able to tell them apart when spelling a word out and costs
-# nothing when saying one.
+# Most of them arrive as a letter Italian already has, so its own
+# letter-to-sound rules apply to Urdu text unchanged and a word can be heard
+# before a single rule has been written. Urdu writes one sound several ways --
+# s three, z four -- and all of those arrive as the one letter, which costs
+# telling them apart when spelling a word out and nothing when saying one.
+#
+# Five have a byte of their own, because a rule has to be able to see them
+# and no Italian letter would say so: the three retroflexes, do chashmi he
+# which makes the aspirates, and nun ghunna. Each says the nearest sound
+# there is until the rule that says better is written.
 #
 # The letters and their sounds are from references/g2ps/Urdu, which is MIT.
-# Where Urdu makes a distinction this chassis has not got -- the retroflexes,
-# the aspirates, /h/, /x/, /q/ -- the letter has a byte of its own so a rule
-# can see it later, and the nearest sound Italian has until then.
+# What is still wrong is in docs/notes/urdu.md: no aspirates, no retroflex
+# sounds, no /h/, /x/ or /q/, no nasal vowels and no vowel length.
 
-0621 1d   # ain and hamza, both silent here
-0622 0b   # alef and alef madda
-0627 0b   # alef and alef madda
-0628 0c   # be
-062a 0f   # te and toe, dental
-062b 11   # sin, se, suad
-062c 12   # jim
-062d 14   # bari he and he -- /h/, absent here
-062e 15   # khe -- /x/, k until there is one
-062f 16   # dal, dental
-0630 18   # ze, zal, zuad, zoe
-0631 19   # re, a tap
-0632 18   # ze, zal, zuad, zoe
-0633 11   # sin, se, suad
-0634 1c   # shin
-0635 11   # sin, se, suad
-0636 18   # ze, zal, zuad, zoe
-0637 0f   # te and toe, dental
-0638 18   # ze, zal, zuad, zoe
-0639 1d   # ain and hamza, both silent here
-063a 1e   # ghain -- a voiced velar fricative
-0641 1f   # fe
-0642 7f   # qaf -- uvular, k until there is a q
-0644 84   # lam
-0645 86   # mim
-0646 87   # nun
-0648 89   # vao, which is also a vowel
-064e 8f   # zabar, short a
-064f 91   # pesh, short u
-0650 90   # zer, short i
-0679 10   # tte, retroflex -- t until T sounds
-067e 0e   # pe
-0686 13   # che
-0688 17   # ddal, retroflex -- d until D sounds
-0691 1a   # rre, the retroflex flap
-0698 1b   # zhe
-06a9 82   # kaf
-06af 83   # gaf
-06ba 88   # nun ghunna -- no nasal vowels yet
-06be 8b   # do chashmi he, which makes the aspirates
-06c1 14   # bari he and he -- /h/, absent here
-06cc 8d   # ye, which is also a vowel
-06d2 8e   # bari ye
+0621 68   # hamza -- the same
+0622 61   # alef madda, long a
+0627 61   # alef -- the vowel carrier, a
+0628 62   # be
+062a 74   # te, dental
+062b 73   # se -- s
+062c 67   # jim -- g, the nearest this inventory has
+062d 68   # bari he -- h, which says nothing here
+062e 6b   # khe -- k until there is an x
+062f 64   # dal, dental
+0630 7a   # zal -- z
+0631 72   # re, a tap
+0632 7a   # ze
+0633 73   # sin
+0634 73   # shin -- s until sh is written as one
+0635 73   # suad -- s
+0636 7a   # zuad -- z
+0637 74   # toe -- t as Urdu says it
+0638 7a   # zoe -- z
+0639 68   # ain -- silent, as h is here
+063a 67   # ghain -- g
+0641 66   # fe
+0642 6b   # qaf -- k until there is a q
+0644 6c   # lam
+0645 6d   # mim
+0646 6e   # nun
+0648 75   # vao -- u, which is what it is oftenest
+064e 61   # zabar, short a
+064f 75   # pesh, short u
+0650 69   # zer, short i
+0679 82   # tte, retroflex -- its own byte, t until T sounds
+067e 70   # pe
+0686 63   # che -- c
+0688 83   # ddal, retroflex -- its own byte, d until D sounds
+0691 84   # rre -- its own byte, the retroflex flap
+0698 7a   # zhe -- z until there is a zh
+06a9 6b   # kaf
+06af 67   # gaf
+06ba 87   # nun ghunna -- its own byte, no nasal vowels yet
+06be 86   # do chashmi he -- its own byte, it makes the aspirates
+06c1 68   # he -- the same
+06cc 69   # ye -- i, which is what it is oftenest
+06d2 65   # bari ye -- e

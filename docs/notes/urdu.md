@@ -45,6 +45,14 @@ What Urdu needs that is not in that list, in the order the work is worth doing:
 5. **The nasal vowels.** Polish declined these and speaks its ogoneks as vowel-then-n, which is what Polish itself does before a stop. Urdu's are contrastive in their own right, so the same answer would be a worse one here.
 6. **Vowel length.** Urdu contrasts long and short; Italian does not.
 
-## The letters
+## The letters, which are in
 
-Urdu is written in Arabic script and right to left, and none of it is in the alphabet Italian brought. `lang/urpk/urpk.codepoints` is where each character says which byte of the alphabet it arrives as -- `plpl.codepoints` is the worked example, eight letters with a comment each -- and `tools/module/alphabet.py show urpk` says which bytes are free. That file is empty today: the module has no character of its own yet.
+`lang/urpk/urpk.codepoints` carries 43 code points and Urdu text speaks. کتاب, پانی, اردو and سلام all come out as sound rather than as nothing.
+
+Most characters arrive as a letter Italian already has, so its own letter-to-sound rules apply to Urdu text with nothing written. That is what makes a word audible before a single rule exists, and it is provable rather than hopeful: کتاب through Urdu and `ktab` through Italian are the same 8,899 samples and the same hash, which is what the mapping claims, since Urdu does not write its short vowels.
+
+Urdu writes one sound several ways -- s three, z four -- and all of those arrive as the one letter. What that costs is telling them apart when spelling a word out; it costs nothing when saying one.
+
+Five have a byte of their own, because a rule has to be able to see them and no Italian letter would say so: ٹ, ڈ and ڑ, ھ which makes the aspirates, and ں. Each says the nearest sound there is until the rule that says better is written.
+
+Two things learned doing it, both worth not learning twice. The alphabet is keyed by the latin-1 glyph of the byte, so a byte is unusable when its glyph already names a character -- which leaves 50 of 255 free, and the eight Polish took are among them. And of those 50, 31 are below 0x20: a letter put at a control byte is dropped on the way in and the word comes back silent, with nothing said about why.
