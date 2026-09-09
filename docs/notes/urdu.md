@@ -113,3 +113,18 @@ which is the sentence, and says where the next work is.
 After that, in what it costs a listener: the nasal vowels, which ں cannot carry on its own, so میں is `me`; and the aspirates, so رکھتا is `rakta`.
 
 What this is not. It is a step outside the engine, so nothing reaches it through SAPI or a screen reader: a caller hands text to the engine, not to a script. Making it reach one means either the rules living in the module or the SAPI layer asking espeak the same question. And espeak's own Urdu is `status testing`: شکریہ comes back as the *names* of its letters, `ʃˈiːn kˈaːf rˈeː ...`, which is espeak reading a word it does not know letter by letter.
+
+## The chassis, asked again after hearing it
+
+Listening to the Italian chassis speak Urdu, the inflection is the thing that sounds wrong -- worse than US English's on the same words. That is worth settling before another sound is added, because every sound added is added to a chassis.
+
+What is known rather than guessed:
+
+- **Polish found the same.** `docs/notes/polish.md`: Polish stress being Italian's was *the largest single thing making the language sound Italian*, and `pol_primary_stress` in `lang/plpl/rules/it_strss.up` replaces Italian's thousand and ninety lines with sixteen. So the fix is small and there is a worked example of it.
+- **But Italian's rule may be right for Urdu where it was wrong for Polish.** What Polish objected to is that Italian accents a word ending in a consonant on its last syllable. Urdu's stress is weight-sensitive and a heavy final syllable does take it -- کتاب is ki-TĀB -- so the very rule that made Polish sound Italian is close to right here. Which says the inflection that sounds wrong is more likely Italian's prosody than its stress, and prosody is a bigger thing than a rule.
+- **English would bring /h/ for nothing.** English declares h and Italian has none, and /h/ is the loudest sound still missing.
+- **English would cost the two things Italian was chosen for**: its coronals are alveolar where Urdu's are dental, and its vowels reduce where Urdu's do not. The second is the worse of the two -- an unstressed Urdu vowel becoming a schwa is wrong in every word.
+
+Samples 30 to 33 are the same text through both, and the question is only answerable by ear.
+
+A warning from the Polish note worth keeping whichever way it goes: a rule cannot answer through `get_parm_ptr`, and four separate experiments there appeared to move the stress and were all no-ops. When a change to a rule seems to work, hold it against a rule whose whole body is `match`, not only against the rule it replaced.
