@@ -33,6 +33,9 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import stress
+
 # espeak's and Wiktionary's IPA -> the phoneme the module has for it. Two
 # characters first, or the one-character rules eat their heads.
 PAIRS = [
@@ -123,7 +126,6 @@ def normalise(w):
 
 def word(w):
     """One word of IPA as one pronunciation annotation."""
-    stress = ".1" if u"\u02c8" in w else ""
     w = u"".join(c for c in w if c not in DROP)
     out, i = [], 0
     while i < len(w):
@@ -154,7 +156,11 @@ def word(w):
         else:
             i += 1
     body = u"".join(out)
-    return u"`[" + stress + body + u"]" if body else u""
+    # Where the stress falls is the word's own business rather than the
+    # source's: espeak marks one and the lexicon marks none, and neither
+    # knows Urdu's rule. tools/urdu/stress.py works it out of the shape
+    # of the syllables, which is what Urdu stress actually follows.
+    return u"`[" + stress.mark(body) + u"]" if body else u""
 
 
 def lexicon():
