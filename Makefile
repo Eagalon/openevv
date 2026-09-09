@@ -811,6 +811,27 @@ endef
 $(foreach l,$(LANGS),$(eval $(call \
     $(if $(wildcard $(l)/rules),rulecode_from_text,rulecode_lifted),$(l))))
 
+# What each of a language's own characters arrives as, written out of
+# lang/<tag>/<tag>.codepoints. Same argument as the rules above: the text is
+# the source and the C beside it is generated. Until this was here nothing
+# named the text as a prerequisite, so a code point edited in the text was a
+# change that silently did not happen -- eight Urdu letters were pointed at
+# bytes that speak and stayed silent through two rebuilds, because the table
+# the engine read was the one written before the edit.
+#
+# Only for a module whose text is there. The nine IBM shipped have no file
+# and need none: every letter they have is in the byte set the engine was
+# built around, and it is a language of ours that can have letters that are
+# not.
+define codepoints_from_text
+$(1)/delta_codepoints_$(notdir $(1)).c: $(1)/$(notdir $(1)).codepoints \
+                    tools/module/codepoints.py tools/evv.py
+	@python3 tools/module/codepoints.py $(notdir $(1))
+endef
+
+$(foreach l,$(LANGS),$(if $(wildcard $(l)/$(notdir $(l)).codepoints),\
+    $(eval $(call codepoints_from_text,$(l)))))
+
 # The rules as C. Thirteen megabytes written out of the bytecode beside it,
 # so it is made here rather than kept in the tree, where every change to the
 # decompiler would rewrite the whole of it.

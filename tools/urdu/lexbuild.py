@@ -45,6 +45,7 @@ OUT = os.path.join(ROOT, "references", "lexicons", "urd_espeak.tsv")
 
 UR_LIST = os.path.join(ROOT, "references", "espeak-ng", "dictsource", "ur_list")
 FREQ = os.path.join(ROOT, "references", "wordlists", "ur_full.txt")
+BULK = os.path.join(ROOT, "references", "wordlists", "urduhack_words.txt")
 CASES = os.path.join(ROOT, "test", "cases")
 
 URDU = re.compile(u"^[\u0600-\u06ff\u0750-\u077f]+$")
@@ -72,6 +73,20 @@ def vocabulary():
     try:
         for line in io.open(FREQ, encoding="utf-8"):
             w = line.split()[0] if line.split() else ""
+            if URDU.match(w):
+                words.add(w)
+    except IOError:
+        pass
+
+    # And the big one: 154,781 Urdu words from urduhack, which is MIT and is
+    # a vocabulary rather than a lexicon -- no pronunciations in it, which is
+    # what espeak is for. It is fifteen times the rest put together and is
+    # what takes this from covering the test text to covering ordinary text.
+    # Entries with an underscore in them are phrases and are left out by the
+    # Urdu-letters-only test above.
+    try:
+        for line in io.open(BULK, encoding="utf-8"):
+            w = line.strip()
             if URDU.match(w):
                 words.add(w)
     except IOError:

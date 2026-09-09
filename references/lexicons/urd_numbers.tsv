@@ -1,0 +1,124 @@
+# Urdu numbers as IPA, which is the one thing a lexicon cannot hold: there
+# are infinitely many numbers and this is the hundred words they are all
+# built out of.
+#
+# 0 to 99 because Urdu's are irregular all the way up -- every one of them
+# has its own name, unlike English, where twenty-one is two words. Then the
+# five scale words, which are the Indian ones and not the Western: a hundred,
+# a thousand, a lakh which is a hundred thousand, a crore which is a hundred
+# lakh, and an arab which is a hundred crore. tools/urdu/numbers.py puts them
+# together.
+#
+# Written by hand out of espeak's answers, once, because espeak reads a
+# number written in ASCII digits and returns nothing at all for one written
+# in Urdu's own numerals -- ۱۲۳ goes in and silence comes out. کروڑ is the
+# one entry corrected: espeak wrote its retroflex as a full stop after the r,
+# which is espeak's notation and not IPA.
+0	sˈɪfar
+1	ˈeːk
+2	dˈoː
+3	tˈiːn
+4	cˈaːr
+5	pˈaːŋc
+6	cʰˈeh
+7	sˈaːt
+8	ˈaːtʰ
+9	nˈaʊ
+10	dˈas
+11	ɡjˈaːrah
+12	bˈaːrah
+13	tˈeːrah
+14	cˈaʊdah
+15	pˈandrah
+16	sˈoːlah
+17	sˈatrah
+18	atʰˈaːrah
+19	ˈʊnnis
+20	bˈiːs
+21	ɪkkˈiːs
+22	baːˈiːs
+23	teːˈiːs
+24	caʊbˈiːs
+25	paccˈiːs
+26	cʰabbˈiːs
+27	sˌatːaːˈiːs
+28	ˌatʰːaːjˈiːs
+29	ʊntˈiːs
+30	tˈiːs
+31	ˌiktˈiːs
+32	batːˈiːs
+33	tˈaɪŋtˈiːs
+34	caʊŋtˈiːs
+35	paɪŋtˈiːs
+36	cʰatːˈiːs
+37	saɪŋtˈiːs
+38	artˈiːs
+39	ˌʊntaːlˈiːs
+40	caːlˈiːs
+41	ˌɪktaːlˈiːs
+42	bˌajaːlˈiːs
+43	tˌeːŋtaːlˈiːs
+44	cˌaʋaːlˈiːs
+45	pˌaɪŋtaːlˈiːs
+46	cʰˌɪjaːlˈiːs
+47	sˌaɪŋtaːlˈiːs
+48	ˌartaːlˈiːs
+49	ʊncˈaːs
+50	pacˈaːs
+51	ɪkˈaːʋan
+52	bˈaːʋan
+53	tˈɪrpan
+54	cˈaʊʋan
+55	pˈacpan
+56	cʰˈappan
+57	satːˈaːʋan
+58	atʰˈaːʋan
+59	ʊnsˈatʰ
+60	sˈaːtʰ
+61	ˈɪksatʰ
+62	bˈaːsatʰ
+63	tˈɪrsatʰ
+64	cˈaʊsatʰ
+65	pˈaɪŋsatʰ
+66	cʰɪjˈaːsatʰ
+67	sˈarsatʰ
+68	ˈarsatʰ
+69	ʊnhˌatːˈar
+70	satːˈar
+71	ˌɪkhatːˈar
+72	bˌahatːˈar
+73	tˌɪhatːˈar
+74	cˌaʊhatːˈar
+75	pˌacʰatːˈar
+76	cʰˌɪhatːˈar
+77	sˌatʰatːˈar
+78	ˌatʰhatːˈar
+79	ˌʊnnaːsˈiː
+80	assˈiː
+81	ˌɪkaːsˈiː
+82	bˌajaːsˈiː
+83	tˌɪraːsˈiː
+84	cˌaʊraːsˈiː
+85	pˌacaːsˈiː
+86	cʰˌɪjaːsˈiː
+87	sˌatːaːsˈiː
+88	ˌatʰaːsˈiː
+89	nˌaʋaːsˈiː
+90	naʋʋˈeː
+91	ɪkjˈaːnʋeː
+92	bˈaːnʋeː
+93	tɪθˈaːnʋeː
+94	caʊrˈaːnʋeː
+95	pacˈaːnʋeː
+96	cʰɪjˈaːnʋeː
+97	satːˈaːnʋeː
+98	atʰːˈaːnʋeː
+99	nɪnjˈaːnʋeː
+سو	sˈoː
+ہزار	həzˈaːr
+لاکھ	lˈaːkʰ
+کروڑ	kərˈoːɽ
+ارب	ˈarəb
+کھرب	kʰˈʌrəb
+منفی	mˈʌnfˌiː
+اعشاریہ	ˌaːʃaːrˈiːa

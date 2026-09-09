@@ -34,6 +34,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import numbers as urdu_numbers
 import stress
 
 # espeak's and Wiktionary's IPA -> the phoneme the module has for it. Two
@@ -310,6 +311,27 @@ def lexicon():
     return read_tsv(ESPEAK_LEXICON, read_tsv(LEXICON, {}))
 
 
+def mark_end(written, spoken):
+    """Put back the mark the sentence ended with.
+
+    The engine reads a full stop as the end of a phrase and gives what came
+    before it its own shape; without one a whole paragraph is a single
+    breath. Urdu's full stop is U+06D4 and its comma and question mark are
+    its own too, none of which the engine knows, so each arrives as the
+    western one it means.
+    """
+    if not spoken:
+        return spoken
+    tail = written.rstrip(u"\u0022\u0027)")
+    if tail.endswith((u"۔", u".")):
+        return spoken + u"."
+    if tail.endswith(u"؟"):
+        return spoken + u"?"
+    if tail.endswith((u"،", u",")):
+        return spoken + u","
+    return spoken
+
+
 def _ask(espeak, words):
     """One batch, or None if espeak did not answer word for word."""
     try:
@@ -378,6 +400,21 @@ if __name__ == "__main__":
 
     said = []
     for w in words:
+        # A number first, because no lexicon can hold one and because the
+        # full stop is both a decimal point and the end of a sentence: 3.14
+        # is tried whole before anything is stripped off it, and 25۔ only
+        # after. tools/urdu/numbers.py says why this is not left to espeak.
+        num = urdu_numbers.ipa_of(w)
+        if num is None:
+            num = urdu_numbers.ipa_of(w.strip(PUNCT))
+        if num is not None:
+            # A number is several words -- twelve laakh, thirty-four
+            # thousand -- and each gets its own annotation, so the engine
+            # phrases them instead of running them into one long word.
+            said.append(mark_end(w, u" ".join(
+                x for x in (word(p) for p in num.split(u" ")) if x)))
+            continue
+
         bare = normalise(w.strip(PUNCT))
         ipa = (OVERRIDE.get(bare) or lex.get(bare)
                or guessed.get(w) or guessed.get(bare))
@@ -388,17 +425,5 @@ if __name__ == "__main__":
             # one, so it is put back rather than lost.
             if bare[:1] in (u"ہ", u"ح") and ipa[:1] not in (u"h", u"ɦ"):
                 ipa = u"ɦ" + ipa
-            spoken = word(ipa)
-            # Keep the end of a sentence. The engine reads a full stop as
-            # one and gives the phrase its own shape; without it a whole
-            # paragraph is a single breath. Urdu's full stop is U+06D4 and
-            # the engine does not know it, so it arrives as a western one.
-            tail = w.rstrip(u"\u0022\u0027)")
-            if tail.endswith((u"\u06d4", u".")):
-                spoken += u"."
-            elif tail.endswith(u"\u061f"):
-                spoken += u"?"
-            elif tail.endswith((u"\u060c", u",")):
-                spoken += u","
-            said.append(spoken)
+            said.append(mark_end(w, word(ipa)))
     print(u" ".join(x for x in said if x))
