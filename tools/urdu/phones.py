@@ -223,5 +223,17 @@ if __name__ == "__main__":
             # one, so it is put back rather than lost.
             if bare[:1] in (u"ہ", u"ح") and ipa[:1] not in (u"h", u"ɦ"):
                 ipa = u"ɦ" + ipa
-            said.append(word(ipa))
+            spoken = word(ipa)
+            # Keep the end of a sentence. The engine reads a full stop as
+            # one and gives the phrase its own shape; without it a whole
+            # paragraph is a single breath. Urdu's full stop is U+06D4 and
+            # the engine does not know it, so it arrives as a western one.
+            tail = w.rstrip(u"\u0022\u0027)")
+            if tail.endswith((u"\u06d4", u".")):
+                spoken += u"."
+            elif tail.endswith(u"\u061f"):
+                spoken += u"?"
+            elif tail.endswith((u"\u060c", u",")):
+                spoken += u","
+            said.append(spoken)
     print(u" ".join(x for x in said if x))
