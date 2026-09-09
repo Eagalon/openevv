@@ -2,7 +2,7 @@
 # Speak Urdu with its short vowels in, by asking espeak what they are.
 #
 # Urdu does not write them, so the module reads کتاب as ktab. espeak's Urdu
-# knows the word and answers kɪtˈaːb; tools/urdu/vowels.py writes that back
+# knows the word and answers kɪtˈaːb; tools/urdu/phones.py writes that back
 # out as letters lang/urpk already says, and the engine speaks those. Nothing
 # in the engine is changed and nothing of espeak's is linked -- it is asked,
 # as a separate program, and only its answer is used.
@@ -30,7 +30,7 @@ command -v "$espeak" >/dev/null 2>&1 || {
 
 spelled=$(printf '%s\n' "$text" \
           | "$espeak" -v ur -q --ipa 2>/dev/null \
-          | python3 "$here/tools/urdu/vowels.py")
+          | python3 "$here/tools/urdu/phones.py")
 
 printf '%s\n' "$spelled" | "$evv" -L "$lang" -o "$out"
 echo "urdu/say: $spelled"

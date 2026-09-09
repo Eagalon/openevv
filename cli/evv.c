@@ -38,7 +38,7 @@ enum ECICallbackReturn {
 };
 
 /* The engine's own parameters, and a voice's. Only the few this needs. */
-enum { P_SAMPLE_RATE = 5, P_REAL_WORLD_UNITS = 8 };
+enum { P_INPUT_TYPE = 1, P_SAMPLE_RATE = 5, P_REAL_WORLD_UNITS = 8 };
 enum { V_GENDER, V_HEAD_SIZE, V_PITCH, V_FLUCTUATION, V_ROUGHNESS,
        V_BREATHINESS, V_SPEED, V_VOLUME, V_COUNT };
 
@@ -227,6 +227,8 @@ static void usage(FILE *f)
 "            from there, so the voice is the same one at every setting.\n"
 "            EVV_UPSAMPLE says how: sinc by default, or cubic, linear,\n"
 "            hold or zeros, or none to synthesise at the rate instead\n"
+"  -a        read annotations, so a backtick and a letter act on the\n"
+"            engine rather than being spoken aloud\n"
 "  -r        take every number above in a person's units instead of the\n"
 "            engine's: words per minute for speed, hertz for pitch\n"
 "  -L ID     speak in the language with that number; -L list names the\n"
@@ -242,6 +244,7 @@ int main(int argc, char **argv)
 {
     const char *out = NULL, *from = NULL, *lang = NULL;
     int         voice = 0, real = 0, list = 0, want_rate = -1;
+    int         annotate = 0;
     int         langlist = 0;
     int         set[V_COUNT];
     char       *text;
@@ -267,7 +270,7 @@ int main(int argc, char **argv)
     for (i = 0; i < V_COUNT; i++)
         set[i] = -1;
 
-    while ((i = getopt(argc, argv, "o:f:v:s:p:V:R:L:rlh")) != -1) {
+    while ((i = getopt(argc, argv, "o:f:v:s:p:V:R:L:arlh")) != -1) {
         switch (i) {
         case 'o': out = optarg; break;
         case 'f': from = optarg; break;
@@ -283,6 +286,7 @@ int main(int argc, char **argv)
                input for a sentence it is never going to speak. */
             langlist = strcmp(optarg, "list") == 0;
             break;
+        case 'a': annotate = 1; break;
         case 'r': real = 1; break;
         case 'l': list = 1; break;
         case 'h': usage(stdout); return 0;
@@ -380,6 +384,13 @@ int main(int argc, char **argv)
 
     /* A person's units are a parameter of the engine, not of the voice, and
        it has to be on before a voice setting is read or written in them. */
+    /* Annotations are off unless this is on, and with them off one is
+       spoken aloud rather than acted on -- a backtick and a letter read out
+       as words. `[...]' is how a caller hands the engine a pronunciation
+       instead of a spelling, which is what tools/urdu/phones.py writes. */
+    if (annotate && ev_setParam(h, P_INPUT_TYPE, 1) < 0)
+        die("this engine will not read annotations");
+
     if (real && ev_setParam(h, P_REAL_WORLD_UNITS, 1) < 0)
         die("this engine will not answer in a person's units");
 
