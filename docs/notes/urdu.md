@@ -68,3 +68,28 @@ Urdu writes one sound several ways -- s three, z four -- and all of those arrive
 Five have a byte of their own, because a rule has to be able to see them and no Italian letter would say so: ٹ, ڈ and ڑ, ھ which makes the aspirates, and ں. Each says the nearest sound there is until the rule that says better is written.
 
 Two things learned doing it, both worth not learning twice. The alphabet is keyed by the latin-1 glyph of the byte, so a byte is unusable when its glyph already names a character -- which leaves 50 of 255 free, and the eight Polish took are among them. And of those 50, 31 are below 0x20: a letter put at a control byte is dropped on the way in and the word comes back silent, with nothing said about why.
+
+## Four letters that were saying the wrong thing
+
+Routing a letter through one Italian already has is right for most of them and was plainly wrong for four, because Italian reads its own letters by their Italian rules:
+
+- چ arrived as `c`, and Italian `c` before `a` is /k/, so چار was `car`.
+- ج arrived as `g`, which before `a` is a plain /g/, so جانا was `gana`.
+- ش arrived as `s`, so شام was `sam`.
+- ژ arrived as `z`.
+
+Each has a byte of its own now, saying `C`, `J`, `S` and `Z` -- the phonemes Italian already has for those exact sounds, reached directly rather than through a letter that has to be read first. Measured before and after: all three of چار, جانا and شام were byte for byte what Italian says for `car`, `gana` and `sam`, and none of them is now.
+
+The same reading is what still spoils و and ی, which are a consonant at the start of a word and a vowel elsewhere, and both currently arrive as the vowel.
+
+## The dictionary, and why there is not one yet
+
+Urdu does not write its short vowels, so کتاب arrives as `ktab` and سلام as `slam`. That is the largest thing still wrong, and it is the thing the literature says is not solvable by rule: what real systems do is look the word up. openevv has the mechanism -- `lang/<tag>/<tag>.dict`, written and read back by `tools/module/dict.py` -- and `lang/urpk/urpk.dict` is dumped and reads back word for word.
+
+It cannot yet be given Urdu words, and the reason is worth writing down rather than rediscovering:
+
+- **A new action cannot be added.** `ital_words` and `ital_funct_words` both answer *no arm in this rule states its own record length, so a new one has nothing to copy*. Whatever the rule does with the record, it does not do it in a way the tool can copy for a word that was not there.
+- **So an entry has to be retaken**, the way a phoneme is. Of `ital_funct_words`' 187 entries only **25** have an action nothing else shares; changing one of the others changes every word sharing it.
+- **And a retaken action keeps its length.** It *can only be given a record of the length it already lays down*, so a five-phone Urdu word needs a five-phone Italian one. Of the 25, the lengths available are 1, 2, 6 and 7 -- there is not a single free slot of 3, 4 or 5 phones, which is most of the vocabulary worth adding.
+
+So the dictionary is not the next move on this chassis. What is left is either a module whose dictionary rule states its lengths, or the vowels coming from somewhere other than a lexicon.

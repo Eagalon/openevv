@@ -82,6 +82,10 @@ statement inp
   variants 01 01 02 01 16
   variants 01 01 02 01 00
   variants 01 01 02 01 14
+  variants 01 01 02 01 0e
+  variants 01 01 02 01 0d
+  variants 01 01 02 01 0c
+  variants 01 01 02 01 0b
   field name
     where 5 5 1
     what -1 1 0
@@ -298,6 +302,10 @@ statement inp
     value 
     value 
     value 
+    value 
+    value 
+    value 
+    value 
     end
   field letcase
     where 0 0 1

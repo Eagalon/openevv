@@ -22,7 +22,7 @@
 0628 62   # be
 062a 74   # te, dental
 062b 73   # se -- s
-062c 67   # jim -- g, the nearest this inventory has
+062c 89   # jim -- its own byte: g is a plain g before a
 062d 68   # bari he -- h, which says nothing here
 062e 6b   # khe -- k until there is an x
 062f 64   # dal, dental
@@ -30,7 +30,7 @@
 0631 72   # re, a tap
 0632 7a   # ze
 0633 73   # sin
-0634 73   # shin -- s until sh is written as one
+0634 8b   # shin -- its own byte: it was arriving as s
 0635 73   # suad -- s
 0636 7a   # zuad -- z
 0637 74   # toe -- t as Urdu says it
@@ -48,10 +48,10 @@
 0650 69   # zer, short i
 0679 82   # tte, retroflex -- its own byte, t until T sounds
 067e 70   # pe
-0686 63   # che -- c
+0686 88   # che -- its own byte: c is k before a in Italian
 0688 83   # ddal, retroflex -- its own byte, d until D sounds
 0691 84   # rre -- its own byte, the retroflex flap
-0698 7a   # zhe -- z until there is a zh
+0698 8d   # zhe -- its own byte, the voiced one of shin
 06a9 6b   # kaf
 06af 67   # gaf
 06ba 87   # nun ghunna -- its own byte, no nasal vowels yet
