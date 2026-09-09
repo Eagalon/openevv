@@ -354,3 +354,42 @@ reasoning. ʂ was sent to S on the guess that a retroflex sibilant is near ش.
 It is not: ʂ is how espeak writes ص, which in Urdu is a plain s, so صبر said
 shabar and صاف said shaaf. Which letters give rise to a symbol is a thing to
 look up in the lexicon, not to reason about from the symbol's name.
+
+## The duration model is Italian's, and where it lives. 9 September 2026
+
+Reported by ear, and correctly: the dialect problem is not the phonemes, it is
+that some sounds are stretched and others cut in the way Italian and Spanish
+do it. Italian lengthens a stressed vowel in an open syllable and cuts an
+unstressed one hard. Urdu does neither -- its vowel length is in the word, not
+in the position -- so an Urdu word built out of Italian durations sounds like
+an Italian reading Urdu however right the phonemes are.
+
+Measured: four identical `a' phonemes in `takatakata' come back 110, 45, 45
+and 65 milliseconds. Same phoneme, same neighbours, a two-and-a-half-fold
+spread, and moving the stress mark makes it 3.7-fold. Nothing in the
+annotation asked for any of that.
+
+Where it lives. `assign_ital_nuc_durs' in is_sidur.dr runs a pipeline: a
+starting duration from `assign_stanital_start_dur', then six adjustments --
+`ital_context_adjust', `syllable_sequence_adjust', `syll_phone_adjust',
+`word_syll_adjust', `phrase_final_adjust' -- and `distribute_nucdur' to spread
+the total over the phones. Every one is a single call at a known line, so each
+can be replaced with a rule that does nothing, which is what is_sidur.up now
+holds: three no-ops, one per arity the pipeline uses.
+
+Tried one at a time. Three of the six -- `ital_context_adjust',
+`syll_phone_adjust' and `word_syll_adjust' -- change nothing whatever on this
+input, to the sample: they are guarded by tests our annotations never reach.
+The two that fire are `syllable_sequence_adjust' and `phrase_final_adjust'.
+
+Which of them should go is not a question this can answer by measuring. The
+spread metric above is built on voiced runs in the waveform and it does not
+segment vowels reliably -- the run count changes when a rule is disabled,
+which means it is tracking something other than the vowels. So the four
+combinations are rendered in dist/urdu-samples as R1 to R4 and the ear
+decides. They differ from each other over 92% of frames, so there is a real
+choice there and not four versions of one thing.
+
+Nothing is changed in the tree by this. is_sidur.dr is at baseline and the
+installer speaks R1. The no-ops are committed because building them was most
+of the work and the next round should not have to do it again.

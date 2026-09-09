@@ -1,0 +1,27 @@
+# Doing nothing, six times over, so that what Italian's duration rules do can
+# be measured one at a time.
+#
+# assign_ital_nuc_durs runs a pipeline: a starting duration is assigned and
+# then six rules adjust it -- for the syllable's context, for its place in a
+# sequence of syllables, for the phones in it, for the word, for the end of a
+# phrase, and then the total is distributed over the phones. That pipeline is
+# Italian's, and Italian stretches a stressed vowel in an open syllable and
+# cuts an unstressed one hard. Urdu does neither: its vowel length is in the
+# word rather than in the position, and a listener hears the difference at
+# once -- it is what makes this sound like an Italian reading Urdu.
+#
+# There is no way to know from reading which of the six does that. So each
+# gets a rule here that takes its arguments and does nothing, and is_sidur.dr
+# points at one at a time, and the spread of vowel durations in a word of
+# identical vowels says what changed.
+rule urdu_dur_nop1 takes 1 from is_sidur.obj
+  match
+end
+
+rule urdu_dur_nop3 takes 3 from is_sidur.obj
+  match
+end
+
+rule urdu_dur_nop4 takes 4 from is_sidur.obj
+  match
+end
