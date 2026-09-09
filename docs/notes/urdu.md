@@ -208,3 +208,45 @@ to that dispatch is what a further sound would cost, and it is the reason غ is
 still a /g/.
 
 ق stays a /k/ on purpose. Most of Pakistan says it that way.
+
+## The lexicon reaches the voice. 9 September 2026
+
+Everything the frontend knew lived in tools/urdu/phones.py, which is Python
+and runs offline. The voice a person installs never saw any of it. SAPI hands
+the engine letters, Urdu does not write its short vowels, and so the voice
+guessed at the vowel in every word while a lexicon that knew it sat unused on
+disk.
+
+The lookup is the whole of what had to cross, and it crosses as data rather
+than as code. `tools/urdu/gen_sapi_lex.py` writes, for every word, what
+phones.py finally decides -- after the IPA is mapped, after length is doubled,
+after the stress rule has run -- as the phoneme string it ends up being. So
+`sapi/urdu_text.c` does no phonetics at all. It splits words, normalises the
+spelling, reads numbers, and wraps the answer in the annotation the engine
+already reads. 102,453 words, 2.3 MB of blob and 0.4 MB of index; a strcmp
+binary search finds what Python would have found, because Python sorts by code
+point and UTF-8 compares byte for byte in the same order.
+
+Two implementations of one thing is how a thing comes to disagree with itself,
+so `test/urdu_agree.sh` runs the same text through both and diffs. It says
+nothing about whether the pronunciation is good -- that is what the ear is for
+-- only whether the voice says what the samples say, which is a question a
+diff can answer and a listener cannot. Both cases agree.
+
+Better than agreeing: the audio is identical. The whole test file spoken
+through the new path and through the WAV pipeline is the same file, byte for
+byte.
+
+What it fixed beyond the vowels. ہ was the last silent letter that mattered --
+it arrives as Italian's h, which Italian does not pronounce, and it is
+everywhere in Urdu. It needed a letter rule, and now it does not: ہے، ہوں،
+ہم، یہ، وہ، کہا all come out of the lexicon with the /h/ phoneme in them. The
+letter rule was the wrong fix for a problem the lookup does not have.
+
+The text path was fuzzed before it was believed: 300 random byte strings and
+every truncation of a valid Urdu sentence, no failures. Empty input,
+punctuation alone, English, a six-hundred-character word and a word of nothing
+but ژ all come back without a crash. A word the lexicon has not got is dropped
+rather than guessed at, which is what phones.py does and for the same reason:
+an annotation naming a phoneme the module has not got is spoken aloud,
+backticks and all.

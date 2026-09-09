@@ -28,6 +28,14 @@
    between groups -- both of these did -- costs no line here. */
 #include "evv_abi.h"
 #include "delta_lang.h"
+#include "urdu_lex.h"
+
+/* Urdu, which is family eighteen. It is the one language whose text does
+   not go to the engine as it arrived: sapi/urdu_text.c looks each word up
+   first, because Urdu does not write its short vowels and no rule reading
+   the spelling can know them. */
+#define EVV_LANG_URDU 0x120000
+
 
 typedef struct OldInst OldInst;
 
@@ -44,7 +52,7 @@ enum ECICallbackReturn {
 };
 
 /* The engine's own parameters, and a voice's. Only the few this needs. */
-enum { P_REAL_WORLD_UNITS = 8 };
+enum { P_INPUT_TYPE = 1, P_REAL_WORLD_UNITS = 8 };
 enum { V_GENDER, V_HEAD_SIZE, V_PITCH, V_FLUCTUATION, V_ROUGHNESS,
        V_BREATHINESS, V_SPEED, V_VOLUME, V_COUNT };
 
@@ -385,6 +393,12 @@ static HRESULT engine_build(EvvEngine *e)
        written in them; speed then means words a minute and pitch hertz. */
     ev_setParam(h, P_REAL_WORLD_UNITS, 1);
 
+    /* Urdu speaks phonemes rather than letters, so the engine has to be
+       told to read the `[...]' annotation urdu_annotate writes. Every other
+       language is handed its own text and reads it with its own rules. */
+    if (e->lang == EVV_LANG_URDU)
+        ev_setParam(h, P_INPUT_TYPE, 1);
+
     if (e->voice > 0 && !vc_copyVoice(h, e->voice, 0)) {
         es_delete(h);
         return E_FAIL;
@@ -565,10 +579,28 @@ static HRESULT STDMETHODCALLTYPE eng_speak(ISpTTSEngine *self_, DWORD flags,
             vc_setVoiceParam(e->h, 0, V_PITCH, (int32_t)(hz + 0.5));
             vc_setVoiceParam(e->h, 0, V_VOLUME, vol);
 
-            if (!et_addText(e->h, utf8)) {
-                free(utf8);
-                hr = E_FAIL;
-                goto done;
+            /* Urdu goes through the lexicon on the way in. What comes
+               back is annotations rather than letters, which is why the
+               instance was opened with P_INPUT_TYPE set. A null answer
+               means nothing in the text was Urdu this knows -- a stray
+               English word, a run of symbols -- and then the text goes as
+               it came, which the module can at least spell. */
+            {
+                char *say = utf8;
+                char *urdu = 0;
+
+                if (e->lang == EVV_LANG_URDU) {
+                    urdu = urdu_annotate(utf8);
+                    if (urdu)
+                        say = urdu;
+                }
+                if (!et_addText(e->h, say)) {
+                    free(urdu);
+                    free(utf8);
+                    hr = E_FAIL;
+                    goto done;
+                }
+                free(urdu);
             }
             free(utf8);
             queued = 1;

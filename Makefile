@@ -1193,10 +1193,24 @@ $(BUILD)/dlltest.exe: test/lib/dll.c $(BUILD)/eci.dll $(RULESTAMP)
 .PHONY: sapi sapi-test
 sapi: $(BUILD)/OpenEloquence.dll
 
-$(BUILD)/OpenEloquence.dll: sapi/evv_sapi.c $(BUILD)/libevv-win$(SUF).a
-	@$(CCWIN) $(CFLAGSWIN) -shared sapi/evv_sapi.c \
+# sapi/urdu_lex.c is generated and ten megabytes of it, so it is named
+# here rather than left to a wildcard, and tools/urdu/gen_sapi_lex.py
+# writes it from the lexicon when the lexicon is newer. Every other
+# language reads its own text with its own rules and wants none of this.
+$(BUILD)/OpenEloquence.dll: sapi/evv_sapi.c sapi/urdu_text.c \
+                            sapi/urdu_lex.c sapi/urdu_lex.h \
+                            $(BUILD)/libevv-win$(SUF).a
+	@$(CCWIN) $(CFLAGSWIN) -shared sapi/evv_sapi.c sapi/urdu_text.c \
+	   sapi/urdu_lex.c \
 	   $(BUILD)/libevv-win$(SUF).a $(LDFLAGSWIN) -luuid -lole32 -o $@
 	@echo "built $@ with $(TAGS)"
+
+sapi/urdu_lex.c: references/lexicons/urd_arab_broad.tsv \
+                 references/lexicons/urd_espeak.tsv \
+                 references/lexicons/urd_numbers.tsv \
+                 tools/urdu/gen_sapi_lex.py tools/urdu/phones.py \
+                 tools/urdu/stress.py tools/urdu/numbers.py
+	@python3 tools/urdu/gen_sapi_lex.py
 
 sapi-test: $(BUILD)/sapi_smoke.exe
 
