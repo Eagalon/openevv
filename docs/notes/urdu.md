@@ -250,3 +250,60 @@ but ژ all come back without a crash. A word the lexicon has not got is dropped
 rather than guessed at, which is what phones.py does and for the same reason:
 an annotation naming a phoneme the module has not got is spoken aloud,
 backticks and all.
+
+## Four and a half per cent of Urdu was being deleted. 9 September 2026
+
+The shortcomings were listed and then measured, which changed which of them
+mattered. Weighted by how often the words carrying them are said, here is
+every IPA symbol that fell through PAIRS and was dropped in silence:
+
+    ɟ   U+025F   2.391%   ج
+    ʱ   U+02B1   2.214%   the breathy voice of بھ دھ گھ
+    .   U+002E   0.696%   espeak's retroflex marker, which is ڑ
+    ʂ   U+0282   0.181%
+    ᵊ   U+1D4A   0.117%
+    ʐ   U+0290   0.114%
+
+The first is the worst thing found in this branch. espeak writes ج as a bare
+`ɟ` and the table had only `ɟʝ`, so it matched nothing and the consonant was
+deleted: جلدی came out `aldii`, جان came out `aan`. Two and a half per cent of
+all Urdu speech with a consonant simply missing from it, and no error
+anywhere, because a symbol that matches no rule is skipped by design.
+
+The second is Urdu's breathy voiced stops. `ʰ` and `̤` were in ASPIRATE and
+`ʱ` was not, so آدھا was `aadaa`, بھائی was `baaii`, دودھ was `duud`.
+
+The third is the one that stings. espeak writes ڑ as an r with a full stop
+after it -- its own notation leaking into what claims to be IPA -- and 4,836
+words of the lexicon carry one. The r matched, the stop fell through, and
+every ڑ in an espeak-derived word came out a plain tap. The retroflex locus
+written for ڑ, and proved against carro and caro, was only ever reached by
+WikiPron's tenth of the lexicon.
+
+All of them are mapped now and the drop table is empty but for one word in a
+hundred thousand. This is what auditing costs against what guessing costs: an
+hour of measurement found more than a day of listening had.
+
+## A word not known is now said badly rather than not said
+
+An unknown word used to be dropped. The defence was that an annotation naming
+a phoneme the module has not got is spoken aloud, backticks and all -- which
+is an argument against guessing at phonemes, not an argument for silence. The
+lexicon covers 99.3% of ordinary Urdu by token and the other 0.7% is where the
+names are. A person's own name coming back as nothing at all is the worst
+thing this can do.
+
+The engine reads plain text in annotation mode -- measured: a raw word between
+two annotations adds its own length to the utterance -- so an unknown word now
+goes through as its own letters and gets the letter-by-letter reading the
+whole voice used to give. It has no short vowels in it and it is not right.
+زولفقار and ٹیلیوژن in a test sentence were 0.92 seconds of silence and are
+now 0.92 seconds of speech.
+
+## Stress was checked and left alone
+
+Twelve words whose stress is not in doubt, against what the rule gives:
+کتاب، پاکستان، معلوم، دروازہ، مسلمان، استعمال، تعلیم، کھانا، لکھنا، اردو and
+پانی all come out where a speaker puts them. Only لڑکی differs, and which of
+LAR-ki and lar-KI is right is genuinely disputed. Eleven of twelve is not a
+rule to churn for the twelfth.

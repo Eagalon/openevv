@@ -40,9 +40,15 @@ fi
 
 fail=0
 for c in "${cases[@]}"; do
-    ESPEAK=/nonexistent-on-purpose python3 tools/urdu/phones.py < "$c" \
-        > build/agree-py.txt
-    "$bin" < "$c" > build/agree-c.txt
+    # A line beginning with a hash is a note in the case file rather than
+    # something to say. phones.py knows that and the C does not, and the C is
+    # right not to: text arriving from a screen reader has no notes in it, and
+    # a word beginning with a hash is a word. So the convention is stripped
+    # here, where it belongs, rather than taught to both.
+    grep -v '^[[:space:]]*#' "$c" > build/agree-in.txt
+    ESPEAK=/nonexistent-on-purpose python3 tools/urdu/phones.py \
+        < build/agree-in.txt > build/agree-py.txt
+    "$bin" < build/agree-in.txt > build/agree-c.txt
     # --strip-trailing-cr because the harness is a Windows program and its
     # stdout is in text mode, so every line it writes gains a carriage
     # return the Python's does not have. That is the console's doing and not

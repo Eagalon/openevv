@@ -311,13 +311,22 @@ static void mark_end(Buf *b, const uint32_t *w, size_t n)
     add(b, " ");
 }
 
-/* One word: the lexicon, or a number, or nothing at all.
+/* One word: the lexicon, or a number, or the letters themselves.
 
-   A word the lexicon has not got is dropped rather than spelled out. That is
-   deliberate and it is the same thing phones.py does: an annotation naming a
-   phoneme the module has not got is spoken aloud, backticks and brackets and
-   all, so guessing badly is worse than saying nothing. The lexicon covers
-   99.3% of ordinary Urdu by token, so what falls through is rare. */
+   A word the lexicon has not got used to be dropped, and that was wrong. It
+   was defended on the grounds that an annotation naming a phoneme the module
+   does not have is spoken aloud, backticks and all -- which is true, and is
+   an argument against guessing at phonemes, not an argument for silence. The
+   lexicon covers 99.3% of ordinary Urdu by token, but the other 0.7% is
+   where the names are, and a person's own name coming back as nothing at all
+   is the worst thing this can do.
+
+   So an unknown word goes through as its own letters. The engine reads plain
+   text in annotation mode -- measured: a raw word between two annotations
+   adds its own length to the utterance -- and the module has code points for
+   every Urdu letter, so what comes out is the letter-by-letter reading the
+   whole voice used to give. It has no short vowels in it and it is not
+   right. It is a word said imperfectly instead of a word not said. */
 static void say_word(Buf *b, const uint32_t *w, size_t n)
 {
     char bare[512];
@@ -360,10 +369,33 @@ static void say_word(Buf *b, const uint32_t *w, size_t n)
         return;
 
     said = look_up(bare);
-    if (!said)
+    if (said) {
+        add_anno(b, said);
+        mark_end(b, w, n);
         return;
-    add_anno(b, said);
-    mark_end(b, w, n);
+    }
+
+    /* Not in the lexicon: the letters, as they were written. The
+       normalisation above is for finding a word in a table and is not wanted
+       here -- the module has its own code points for the look-alikes and for
+       the vowel points, and it should see the spelling the writer used. A
+       space after, so it cannot run into whatever follows. */
+    {
+        char raw[512];
+        char *q = raw;
+
+        for (i = first; i < last; i++) {
+            if ((size_t)(q - raw) + 4 >= sizeof raw)
+                return;
+            encode(w[i], &q);
+        }
+        *q = 0;
+        if (q == raw)
+            return;
+        add(b, raw);
+        add(b, " ");
+        mark_end(b, w, n);
+    }
 }
 
 char *urdu_annotate(const char *utf8)

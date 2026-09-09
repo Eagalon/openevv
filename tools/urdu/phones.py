@@ -42,6 +42,12 @@ import stress
 PAIRS = [
     (u"t͡ʃ", u"C"), (u"d͡ʒ", u"J"), (u"tʃ", u"C"), (u"dʒ", u"J"),
     (u"ɟʝ", u"J"), (u"cç", u"C"),
+    # espeak writes ڑ as an r with a full stop after it -- its own notation
+    # for a retroflex, leaking into what claims to be IPA. Four thousand eight
+    # hundred words of the lexicon carry one, and every ڑ in them came out a
+    # plain tap, because the r matched and the stop fell through. The locus
+    # written for ڑ was only ever reached by WikiPron's words.
+    (u"r.", u"R"),
     (u"aɪ", u"ay"), (u"aʊ", u"aw"),
     # The retroflexes, all three of which now have a sound of their own and
     # share one locus, urdu_retroflex_Fv: they differ in manner, not place.
@@ -51,6 +57,15 @@ PAIRS = [
     # with a ڈ; it is a dozen borrowed words and the dentals are everywhere.
     (u"ɽ", u"R"), (u"ʈ", u"N"), (u"ɖ", u"Z"), (u"ɳ", u"n"),
     (u"ʃ", u"S"), (u"ʒ", u"z"), (u"ŋ", u"G"),
+    # ج, and the fault that cost most of anything measured today. espeak
+    # writes it as a bare ɟ where this table had only ɟʝ, so it matched
+    # nothing and was dropped outright: جلدی came out aldii. Weighted by how
+    # often the words carrying it are said, that was 2.4% of all Urdu
+    # speech with a consonant simply missing from it.
+    (u"ɟ", u"J"),
+    # espeak's retroflex sibilants, which Urdu does not distinguish from
+    # the plain ones, and three symbols out of its English rules.
+    (u"ʂ", u"S"), (u"ʐ", u"z"), (u"ð", u"d"), (u"ɒ", u"c"),
     # Urdu's ɪ and ʊ go to i and u, short, and not to e and o.
     #
     # They went to e and o for most of this branch's life, and that was a
@@ -98,7 +113,7 @@ PAIRS = [
 # module cannot make yet. Length is deliberately absent -- it is carried
 # below, because Urdu's long vowels are half its vowels and dropping the mark
 # made every one of them short.
-DROP = u"\u0325\u032a\u0330\u031f\u0361\u02de\u02c8\u02cc"
+DROP = u"\u0325\u032a\u0330\u031f\u0361\u02de\u02c8\u02cc\u1d4a\u032f\u02b7\u0295\u25cc"
 LONG = u"\u02d0"
 VOWELS = u"aeiouEcIUAY"
 
@@ -127,8 +142,10 @@ PAIRS_EN = [
     (u"ɟʝ", u"J"), (u"cç", u"C"),
     (u"aɪ", u"Y"), (u"aʊ", u"W"),
     # ɽ takes the retroflex r English already has
+    (u"r.", u"R"),
     (u"ɽ", u"R"), (u"ʈ", u"t"), (u"ɖ", u"d"), (u"ɳ", u"n"),
     (u"ʃ", u"S"), (u"ʒ", u"Z"), (u"ŋ", u"G"),
+    (u"ɟ", u"J"), (u"ʂ", u"S"), (u"ʐ", u"z"),
     # the nasal vowels, written as one character by the lexicon. These were
     # in the Italian table and not this one, so ہوں came out as a bare h and
     # کیوں as ky -- the whole vowel gone, not just its nasality.
@@ -162,7 +179,7 @@ PAIRS_EN = [
 # consonant. The breathy pair are voiced through the breath rather than
 # after it, which this cannot say; they get the same treatment, which is
 # nearer than nothing and not right.
-ASPIRATE = u"\u02b0\u0324"
+ASPIRATE = u"\u02b0\u0324\u02b1"
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LEXICON = os.path.join(ROOT, "references", "lexicons", "urd_arab_broad.tsv")
@@ -436,6 +453,24 @@ if __name__ == "__main__":
         bare = normalise(w.strip(PUNCT))
         ipa = (OVERRIDE.get(bare) or lex.get(bare)
                or guessed.get(w) or guessed.get(bare))
+        if not ipa:
+            # Nothing knows this word, so it goes through as its own
+            # letters. It used to be dropped, and that was wrong: the
+            # argument for dropping was that an annotation naming a phoneme
+            # the module has not got is spoken aloud, backticks and all --
+            # which is an argument against guessing at phonemes, not an
+            # argument for silence. The lexicon covers 99.3% of ordinary
+            # Urdu by token and the rest is where the names are.
+            #
+            # The engine reads plain text in annotation mode, measured: a
+            # raw word between two annotations adds its own length to the
+            # utterance. So what comes out is the letter-by-letter reading,
+            # with no short vowels in it and not right. A word said
+            # imperfectly rather than a word not said.
+            raw = w.strip(PUNCT)
+            if raw:
+                said.append(mark_end(w, raw))
+            continue
         if ipa:
             # Wiktionary transcribes some words the way they are often said
             # rather than the way they are written: ہے is given as eː with no
