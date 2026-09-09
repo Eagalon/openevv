@@ -52,6 +52,16 @@ def one(word):
     return u"".join(out)
 
 if __name__ == "__main__":
+    # Windows writes a carriage return with every newline, and one of
+    # those inside an annotation stops the engine recognising it -- the
+    # sentence is then spoken as its own backticks and comes out ten
+    # times too long. Say what the line ending is rather than take the
+    # platform's.
+    try:
+        sys.stdout.reconfigure(newline="\n")
+    except AttributeError:
+        pass
+
     text = sys.stdin.read()
     # espeak marks a word it fell back to another language for as (en)...(ur)
     text = re.sub(r"\((en|ur)\)", " ", text)

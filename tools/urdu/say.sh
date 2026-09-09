@@ -32,5 +32,5 @@ spelled=$(printf '%s\n' "$text" \
           | "$espeak" -v ur -q --ipa 2>/dev/null \
           | python3 "$here/tools/urdu/phones.py")
 
-printf '%s\n' "$spelled" | "$evv" -L "$lang" -o "$out"
+printf '%s\n' "$spelled" | "$evv" -a -L "$lang" -o "$out"
 echo "urdu/say: $spelled"
