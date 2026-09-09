@@ -45,6 +45,18 @@ What Urdu needs that is not in that list, in the order the work is worth doing:
 5. **The nasal vowels.** Polish declined these and speaks its ogoneks as vowel-then-n, which is what Polish itself does before a stop. Urdu's are contrastive in their own right, so the same answer would be a worse one here.
 6. **Vowel length.** Urdu contrasts long and short; Italian does not.
 
+## The first sound that is not Italian
+
+ڑ is a retroflex flap now rather than Italian's trill.
+
+`lang/urpk/rules/is_val.up` has `urdu_retroflex_Fv`, and the one call inside `ital_ph_R` in `is_val.dr` points at it instead of `ital_trill_Fv` -- one line changed in the lower form, which is how `lang/plpl` does it too. `R` itself is a retroflex tap in the phone records now instead of a trill, written with `phonemes.py set`.
+
+Italian's trill was the one to take. Urdu's plain r is a tap and Italian spells that `r`; the trill `R` is what a doubled rr reaches and Urdu has no use for it, so nothing of Urdu's was spent to get it.
+
+The numbers are 1750 and 2100, and they are deliberately not Polish's. A retroflex is a low third formant, so F2 sits a little above the dentals' 1700 and F3 comes down to meet it. `pol_retroflex_Fv` is f2 1800 and f3 2500 -- *above* Italian's palatal -- because Polish sz is a palato-alveolar its speakers hear as further back rather than a true retroflex. Urdu's are the real thing. **They have not been heard yet.** Polish's were arrived at by building three settings and listening to five words; these have had no such hearing, and when they get one the comment in the rule should say what was tried.
+
+What it proves, measured the way Polish measured its own: `carro` through Italian and through Urdu is 9,020 samples both ways with 14,583 of 18,040 bytes the same, and `caro` through both is identical byte for byte -- 17,204 of 17,204. One sound moved and nothing else did.
+
 ## The letters, which are in
 
 `lang/urpk/urpk.codepoints` carries 43 code points and Urdu text speaks. کتاب, پانی, اردو and سلام all come out as sound rather than as nothing.

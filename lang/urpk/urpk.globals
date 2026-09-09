@@ -104,3 +104,22 @@ short 2
 word 1
 long 1
 word 1
+
+# What we have worked out the language means by some of them.
+#
+# Ten consecutive shorts hold the formant targets a consonant is spoken with:
+# each formant twice, once for the transition into it and once for the one out.
+# The same ten as Polish's, and for the same reason -- both modules are copies
+# of Italian, so a variable is at the same number in each. Read off Italian's
+# own value rules, where the trill sets f1 to 450 and its f2 to 1250, the
+# labials f2 to 850, the dentals and velars to 1700 and the palatals to 1800.
+name short 421 f1_in
+name short 422 f1_out
+name short 423 f2_in
+name short 424 f2_out
+name short 425 f3_in
+name short 426 f3_out
+name short 427 f4_in
+name short 428 f4_out
+name short 429 f5_in
+name short 430 f5_out

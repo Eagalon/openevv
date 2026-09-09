@@ -1,0 +1,35 @@
+# Sounds Italian has not got, written for Urdu.
+#
+# The shape is Italian's own: a phoneme rule sets the source parameters and
+# calls one locus rule for the place it is articulated at, where the formant
+# targets are. What is here is the locus rules. Which phoneme reaches one is
+# a call inside `ital_ph_<name>` in is_val.dr, changed there one line at a
+# time, which is how lang/plpl does it too.
+
+# The retroflex locus.
+#
+# A retroflex is a low third formant -- the tongue tip curled back lengthens
+# the cavity in front of the constriction, and F3 comes down towards F2. That
+# is the cue, and it is the one thing every description of the series agrees
+# on.
+#
+# Italian's trill is f2 1250 and its dentals are f2 1700, both with a third
+# formant left where the vowel had it. These numbers put F2 a little above
+# the dentals and bring F3 down to meet it, which is the textbook retroflex
+# and is deliberately not what Polish settled on: `pol_retroflex_Fv' is f2
+# 1800 and f3 2500, a hair above Italian's palatal, because Polish sz is a
+# palato-alveolar that its speakers hear as further back rather than a true
+# retroflex. Urdu's are the real thing, so they start where the phonetics
+# says and not where Polish's ear landed.
+#
+# Unheard as they stand. Polish's were arrived at by building three settings
+# and listening to five words, and these have had no such hearing yet; when
+# they get one this comment should say what was tried and what was kept.
+rule urdu_retroflex_Fv takes 1 from is_val.obj
+  call ZZfence_null
+  set f2_in to 1750
+  set f2_out to 1750
+  set f3_in to 2100
+  set f3_out to 2100
+  match
+end
