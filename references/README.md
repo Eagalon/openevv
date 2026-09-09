@@ -167,6 +167,8 @@ later needs to be possible without working any of this out again.
 | `lexicons/urd_arab_narrow.tsv` | WikiPron, Urdu, narrow | CC BY-SA 3.0 |
 | `lexicons/hin_deva_broad.tsv` | WikiPron, Hindi, broad | CC BY-SA 3.0 |
 | `lexicons/urd_espeak.tsv` | **generated** by `tools/urdu/lexbuild.py` | derived from espeak-ng, GPLv3 |
+| `lexicons/urd_numbers.tsv` | **generated**, then corrected by hand | derived from espeak-ng, GPLv3 |
+| `wordlists/urduhack_words.txt` | urduhack/urdu-words, 154,781 words | MIT |
 | `wordlists/ur_full.txt` | hermitdave/FrequencyWords, `content/2018/ur` | CC BY-SA 4.0 |
 | `g2ps/Urdu/` | the g2ps repo, sparse | MIT |
 
@@ -175,7 +177,7 @@ later needs to be possible without working any of this out again.
 `tools/urdu/phones.py` reads exactly two files and asks espeak only for what
 is in neither. WikiPron first: 6,296 Urdu words, each a transcription a
 person wrote down, and so the better answer where there is one. Then
-`urd_espeak.tsv`: 10,793 words, which is espeak's answer for the same
+`urd_espeak.tsv`: 101,580 words, which is espeak's answer for the same
 question, written down once.
 
 Together they cover every word of `test/cases/urdu-full.txt`, which is what
@@ -196,12 +198,19 @@ vocabulary is the union of three things already in this directory:
   espeak rather than espeak's rules;
 - `wordlists/ur_full.txt`, 9,593 words by frequency off Urdu subtitles, which
   is what people say rather than what gets written down;
+- `wordlists/urduhack_words.txt`, 154,781 Urdu words and MIT, which is fifteen
+  times the rest put together and is what takes this from covering the test
+  text to covering ordinary text;
 - every word in `test/cases/urdu-*.txt`, so that a word written to be listened
   to is never the one word that has to go to espeak at run time.
 
-10,917 words asked, 10,793 answered. 4,517 of them had to be asked one at a
-time, because the batch they were in did not come back word for word. That
-number is the measurement of the fault this file exists to route around.
+101,704 words asked, 101,580 answered, in about twenty minutes. 7,504 of them
+had to be asked one at a time, because the batch they were in did not come
+back word for word. That number is the measurement of the fault this file
+exists to route around.
+
+Measured against the frequency list, which is text nobody wrote for this:
+**99.3% of ordinary Urdu, by token, is now looked up rather than guessed.**
 
 ### Provenance, so the licence can be settled later
 
@@ -228,3 +237,29 @@ with letters Devanagari does not distinguish -- س ص ث are all one स -- so a
 mechanical conversion produces a plausible spelling that is often not the
 spelling anyone writes, and therefore never matches real text. Kept for the
 pronunciations themselves, which are good, if a way is found to key them.
+
+### What else was looked at, September 2026
+
+Searched for Urdu TTS and pronunciation data. Two things worth having, one
+worth knowing about, and one dead end.
+
+**urduhack/urdu-words** -- MIT, 154,781 Urdu words, no pronunciations. Taken,
+and it is what carried the lexicon from 14,458 words to 102,455 and from
+covering the test text to covering 99.3% of ordinary Urdu by token.
+
+**PronouncUR** (`harisbinzia/PronouncUR`) -- MIT, and the closest thing to
+what this needs: an Urdu grapheme-to-phoneme model trained on a handcrafted
+expert lexicon of about 39,000 words. But what is in the repository is the
+trained model -- a 41 MB TensorFlow checkpoint -- and not the lexicon it was
+trained on. So it is a program to run rather than data to read, and running
+it would put TensorFlow between this tree and a pronunciation. Worth
+returning to only if espeak's answers turn out to be the thing holding the
+voice back; its `vocab.phoneme` is a useful statement of the ITU phone set
+either way.
+
+**URDUTTS** -- 89 hours of studio Urdu with transcriptions in Urdu script,
+phonemised and romanised. A corpus for training a neural voice, which is not
+what this is. Named here so nobody looks for it twice.
+
+**Kyubyong/pron_dictionaries** -- no licence at all, and the repository is a
+script that builds dictionaries rather than dictionaries. Nothing to take.
