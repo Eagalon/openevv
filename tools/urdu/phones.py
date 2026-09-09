@@ -50,7 +50,7 @@ PAIRS = [
     # the whole vowel went missing: ہوں came out as an h and nothing
     # after it. The module has no nasal vowel, so they say the oral one.
     (u"ũ", u"u"), (u"ĩ", u"i"), (u"ã", u"a"), (u"õ", u"o"),
-    (u"ẽ", u"e"), (u"ṽ", u"u"),
+    (u"ẽ", u"e"), (u"ṽ", u"u"), (u"ẻ", u"e"),
     (u"ɪ", u"e"), (u"ʊ", u"o"), (u"ə", u"a"), (u"ʌ", u"a"),
     (u"æ", u"E"), (u"ɛ", u"E"), (u"ɔ", u"c"),
     (u"ɑ", u"a"), (u"a", u"a"), (u"e", u"e"), (u"i", u"i"),
@@ -72,9 +72,17 @@ PAIRS = [
 # module cannot make yet. Length is deliberately absent -- it is carried
 # below, because Urdu's long vowels are half its vowels and dropping the mark
 # made every one of them short.
-DROP = u"\u02b0\u0325\u032a\u0324\u0303\u0330\u031f\u0361\u02de\u02c8\u02cc"
+DROP = u"\u02b0\u0325\u032a\u0324\u0330\u031f\u0361\u02de\u02c8\u02cc"
 LONG = u"\u02d0"
 VOWELS = u"aeiouEc"
+
+# The nasal vowels, written as one character by the lexicon and as a vowel
+# and a combining tilde by espeak. The module has none, so a nasal vowel is
+# the oral one and then an n -- which is what lang/plpl does with Polish's
+# ogoneks, and what an Urdu speaker does anyway before a stop. میں was coming
+# out mEE, with the nasality simply gone.
+NASAL_ONE = u"ũĩãõẽṽẻ"
+NASAL_MARK = u"̃"
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LEXICON = os.path.join(ROOT, "references", "lexicons", "urd_arab_broad.tsv")
@@ -111,11 +119,21 @@ def word(w):
     while i < len(w):
         for src, dst in PAIRS:
             if w.startswith(src, i):
+                nasal = src in NASAL_ONE
                 i += len(src)
+                # a combining tilde after it says the same thing
+                while i < len(w) and w[i] == NASAL_MARK:
+                    nasal = True
+                    i += 1
                 if i < len(w) and w[i] == LONG:
                     i += 1
                     if dst and dst[-1] in VOWELS:
                         dst = dst + dst[-1]
+                while i < len(w) and w[i] == NASAL_MARK:
+                    nasal = True
+                    i += 1
+                if nasal and dst and dst[-1] in VOWELS:
+                    dst = dst + u"n"
                 out.append(dst)
                 break
         else:
