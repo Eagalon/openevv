@@ -175,6 +175,19 @@ def table():
     return PAIRS_EN if CHASSIS == "enus" else PAIRS
 
 
+def doubles():
+    """Whether a long vowel is written twice.
+
+    Italian has one vowel where Urdu has two and no way to ask for a long
+    one, so length there is the phoneme said again. English has the length
+    already, in the tense and lax pairs -- i against I, u against U -- and
+    doubling on top of that adds a whole second vowel: measured, a repeat
+    costs 34 milliseconds in Italian and 95 in English, which is a word
+    spoken with a stutter in the middle of it.
+    """
+    return CHASSIS != "enus"
+
+
 def aspirate_of():
     """What breath after a stop is written as. English has /h/; Italian has
     the L this branch took over for it."""
@@ -217,7 +230,22 @@ def word(w):
     # source's: espeak marks one and the lexicon marks none, and neither
     # knows Urdu's rule. tools/urdu/stress.py works it out of the shape
     # of the syllables, which is what Urdu stress actually follows.
-    return u"`[" + stress.mark(body) + u"]" if body else u""
+    if not body:
+        return u""
+    # The stress rule reads weight, and weight is length, so the vowel has
+    # to still be doubled when it runs. Only after the mark is placed can
+    # the doubling come out again for a chassis that does not want it.
+    marked = stress.mark(body)
+    if not doubles():
+        out, i = [], 0
+        while i < len(marked):
+            out.append(marked[i])
+            if marked[i] in VOWELS:
+                while i + 1 < len(marked) and marked[i + 1] == marked[i]:
+                    i += 1
+            i += 1
+        marked = u"".join(out)
+    return u"`[" + marked + u"]"
 
 
 # Words the lexicon gets wrong for our purposes, and what they should be.
