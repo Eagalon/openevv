@@ -307,3 +307,50 @@ Twelve words whose stress is not in doubt, against what the rule gives:
 پانی all come out where a speaker puts them. Only لڑکی differs, and which of
 LAR-ki and lar-KI is right is genuinely disputed. Eleven of twelve is not a
 rule to churn for the twelfth.
+
+## fikar, and espeak's Hindi showing through. 9 September 2026
+
+Reported by ear: فکر was being said fikr and an Urdu speaker says fikar. That
+is not one word, it is a rule, and it is one of the things that most marks a
+speaker as native.
+
+Urdu breaks up a word-final consonant cluster when the second consonant is
+more open than the first: فکر fikar, صبر sabar, عقل aqal, شکل shakal, حکم
+hukam, ختم khatam, اصل asal, نظم nazam. It leaves one alone when the sonority
+does not rise: دوست dost, وقت waqt, بند band, پسند pasand are all said as
+written. `epenthesis()` in phones.py reads sonority rather than letters, which
+is what makes both halves of that come out right.
+
+Neither source does it reliably. WikiPron writes the vowel in عمر and صبر and
+اسم and not in فکر or حکم or عقل; espeak disagrees with it about which. So the
+rule is applied here, uniformly, rather than hoped for from the data. The
+vowel is a schwa, which is what WikiPron writes wherever it writes one:
+عمر is ʊməɾ and صبر is səbəɾ.
+
+An aspirate is not a cluster and the rule has to know it. کچھ is written kuCL
+because the module has no aspirated affricate and says one as a stop and a
+breath, so a rule reading sonority would happily put a vowel in the middle of
+one sound. Sixteen words tested, nine that should take a vowel and seven that
+should not; all sixteen right.
+
+The dialect. espeak's Urdu is built on its Hindi and one place that shows is
+the final ی. Urdu says it long -- آزادی aazaadii, زندگی zindagii, لڑکی larkii
+-- and espeak writes a short i. Counted against WikiPron over every word both
+know: 698 words end in ی, WikiPron makes 683 long, and espeak makes 494 of
+those short. Seventy-two per cent wrong, on the ending of every feminine and
+every abstract noun in the language, across the nine tenths of the lexicon
+that comes from espeak. Words ending in ی are nine per cent of everything
+said.
+
+Only ی. The same count over ا, ے and و finds espeak short in none of them, so
+`mend()` corrects the one thing it is reliably wrong about and does not
+second-guess it generally. The fifteen words where WikiPron says a final ی is
+not a long i are all Arabic, where it is an alif maqsura and says aa -- اعلی،
+دعوی، موسی، یحیی -- and every one of them is in WikiPron, which is read first
+and wins.
+
+And a fault of mine from an hour earlier, found by looking rather than
+reasoning. ʂ was sent to S on the guess that a retroflex sibilant is near ش.
+It is not: ʂ is how espeak writes ص, which in Urdu is a plain s, so صبر said
+shabar and صاف said shaaf. Which letters give rise to a symbol is a thing to
+look up in the lexicon, not to reason about from the symbol's name.

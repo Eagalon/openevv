@@ -63,9 +63,13 @@ PAIRS = [
     # often the words carrying it are said, that was 2.4% of all Urdu
     # speech with a consonant simply missing from it.
     (u"ɟ", u"J"),
-    # espeak's retroflex sibilants, which Urdu does not distinguish from
-    # the plain ones, and three symbols out of its English rules.
-    (u"ʂ", u"S"), (u"ʐ", u"z"), (u"ð", u"d"), (u"ɒ", u"c"),
+    # espeak's ʂ and ʐ are ص and ظ, the emphatic pair, and in Urdu they
+    # are a plain s and a plain z -- the emphasis is Arabic's and Urdu does
+    # not keep it. ʂ was sent to S here for an afternoon, on the guess that
+    # a retroflex sibilant is near ش. It is not: صبر said shabar and صاف
+    # said shaaf. Which letters give rise to a symbol is a thing to look up
+    # in the lexicon, not to reason about from the symbol's name.
+    (u"ʂ", u"s"), (u"ʐ", u"z"), (u"ð", u"d"), (u"ɒ", u"c"),
     # Urdu's ɪ and ʊ go to i and u, short, and not to e and o.
     #
     # They went to e and o for most of this branch's life, and that was a
@@ -240,6 +244,54 @@ def aspirate_of():
     return u"h" if CHASSIS == "enus" else u"L"
 
 
+# How open the tract is for each consonant, which is all that is needed to
+# say whether a final pair of them is a cluster an Urdu speaker keeps or one
+# they break up. Stops least, then fricatives, nasals, liquids, glides.
+SONORITY = {}
+for _c in u"pbtdkgNZCJ":  SONORITY[_c] = 0
+for _c in u"fvszSL":      SONORITY[_c] = 1
+for _c in u"mnG":         SONORITY[_c] = 2
+for _c in u"lrR":         SONORITY[_c] = 3
+for _c in u"wy":          SONORITY[_c] = 4
+
+
+def epenthesis(body):
+    """Break up a final consonant cluster the way Urdu does.
+
+    فکر is written with no vowel between the k and the r and is not said
+    that way: an Urdu speaker says fikar, and the same happens to صبر sabar,
+    عقل aqal, شکل shakal, حکم hukam and ختم khatam. It is one of the
+    things that most marks a speaker as native, and neither source does it
+    reliably -- WikiPron writes the vowel in عمر and صبر and اسم and not in
+    فکر or حکم or عقل, and espeak disagrees with it about which. So the
+    rule is applied here, uniformly, rather than hoped for from the data.
+
+    It is sonority that decides, not the letters. A final pair is broken when
+    the second consonant is more open than the first -- kr, bl, km, zm -- and
+    left alone when it is not: دوست dost, وقت waqt, بند band and پسند
+    pasand are all said as they are written.
+
+    The vowel put in is a schwa, which is what WikiPron writes wherever it
+    writes one at all: عمر is ʊməɹ and صبر is səbəɹ.
+
+    An aspirate is not a cluster. کچھ is written kuCL here because the
+    module has no aspirated affricate and says one as a stop and a breath, so
+    the L at the end of it is half of one sound rather than a consonant of
+    its own -- and a rule reading sonority would happily put a vowel in the
+    middle of it.
+    """
+    if len(body) < 2:
+        return body
+    a, b = body[-2], body[-1]
+    if a in VOWELS or b in VOWELS:
+        return body
+    if b == aspirate_of():
+        return body
+    if SONORITY.get(b, 9) > SONORITY.get(a, 9):
+        return body[:-1] + u"a" + b
+    return body
+
+
 def word(w):
     """One word of IPA as one pronunciation annotation."""
     w = u"".join(c for c in w if c not in DROP)
@@ -278,6 +330,9 @@ def word(w):
     # of the syllables, which is what Urdu stress actually follows.
     if not body:
         return u""
+    # Before the stress rule, because putting a vowel in makes a syllable and
+    # the rule counts syllables: fikar is two where fikr was one.
+    body = epenthesis(body)
     # The stress rule reads weight, and weight is length, so the vowel has
     # to still be doubled when it runs. Only after the mark is placed can
     # the doubling come out again for a chassis that does not want it.
@@ -328,6 +383,31 @@ def read_tsv(path, into):
     return into
 
 
+def mend(w, ipa):
+    """Correct espeak where it is reliably wrong about Urdu.
+
+    espeak's Urdu is built on its Hindi, and one of the places that shows is
+    the final ی. Urdu says it long -- آزادی is aazaadii, زندگی zindagii,
+    لڑکی larkii -- and espeak writes a short i. Counted against WikiPron over
+    every word both of them know: 698 words end in ی, WikiPron makes 683 of
+    them long, and espeak makes 494 of those short. Seventy-two per cent
+    wrong, on the ending of every feminine noun and every abstract noun in
+    the language, in the nine tenths of the lexicon that comes from espeak.
+
+    Only ی. The same count over ا, ے and و finds espeak short in none of
+    them, so this mends the one thing it is wrong about rather than
+    second-guessing it generally.
+
+    The fifteen words where WikiPron says the ending is not a long i are all
+    Arabic, where the ی is an alif maqsura and says aa -- اعلی, دعوی, موسی,
+    یحیی. Every one of them is in WikiPron, which is read first and wins,
+    so none of them reaches this.
+    """
+    if w.endswith(u"ی") and ipa.endswith(u"i") and not ipa.endswith(u"i" + LONG):
+        return ipa + LONG
+    return ipa
+
+
 def lexicon():
     """Every word anything in the tree knows how to say.
 
@@ -343,7 +423,10 @@ def lexicon():
     about having done so -- and a machine with espeak lost the lot whenever
     the batch did not come back word for word.
     """
-    return read_tsv(ESPEAK_LEXICON, read_tsv(LEXICON, {}))
+    out = read_tsv(LEXICON, {})
+    for w, p in sorted(read_tsv(ESPEAK_LEXICON, {}).items()):
+        out.setdefault(w, mend(w, p))
+    return out
 
 
 def mark_end(written, spoken):
