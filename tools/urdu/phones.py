@@ -77,7 +77,7 @@ PAIRS = [
 # made every one of them short.
 DROP = u"\u0325\u032a\u0330\u031f\u0361\u02de\u02c8\u02cc"
 LONG = u"\u02d0"
-VOWELS = u"aeiouEc"
+VOWELS = u"aeiouEcIUAY"
 
 # The nasal vowels, written as one character by the lexicon and as a vowel
 # and a combining tilde by espeak. The module has none, so a nasal vowel is
@@ -86,6 +86,41 @@ VOWELS = u"aeiouEc"
 # out mEE, with the nasality simply gone.
 NASAL_ONE = u"ũĩãõẽṽẻ"
 NASAL_MARK = u"̃"
+
+# The same again for lang/enus, which is a better fit for Urdu than Italian
+# in the places that matter most to an ear. It has /h/ as a phoneme of its
+# own, so ہ needs no rule written for it. It has I and U -- the lax pair --
+# where Italian has only the tense i and u, which is the substitution that
+# made دن sound like den and اردو like ordu. And ga_ph_R already speaks at
+# eng_ret_Fv, a retroflex locus IBM shipped, where Italian's had to be
+# written. What it costs is English's own vowel reduction, which is in its
+# rules rather than in its phonemes -- and phonemes are all this hands it,
+# so the spelling never gets a vote.
+#
+# EVV_URDU_CHASSIS says which: enus for this, anything else for Italian.
+PAIRS_EN = [
+    (u"t͡ʃ", u"C"), (u"d͡ʒ", u"J"),
+    (u"tʃ", u"C"), (u"dʒ", u"J"),
+    (u"ɟʝ", u"J"), (u"cç", u"C"),
+    (u"aɪ", u"Y"), (u"aʊ", u"W"),
+    # ɽ takes the retroflex r English already has
+    (u"ɽ", u"R"), (u"ʈ", u"t"), (u"ɖ", u"d"), (u"ɳ", u"n"),
+    (u"ʃ", u"S"), (u"ʒ", u"Z"), (u"ŋ", u"G"),
+    # the lax pair, which is the whole reason this is worth trying
+    (u"ɪ", u"I"), (u"ʊ", u"U"),
+    (u"ə", u"a"), (u"ʌ", u"a"),
+    (u"æ", u"A"), (u"ɛ", u"E"), (u"ɔ", u"c"),
+    (u"ɑ", u"a"), (u"a", u"a"), (u"e", u"e"), (u"i", u"i"),
+    (u"o", u"o"), (u"u", u"u"),
+    (u"b", u"b"), (u"p", u"p"), (u"t", u"t"), (u"d", u"d"), (u"k", u"k"),
+    (u"ɡ", u"g"), (u"g", u"g"), (u"f", u"f"), (u"v", u"v"), (u"s", u"s"),
+    (u"z", u"z"), (u"m", u"m"), (u"n", u"n"), (u"l", u"l"), (u"r", u"r"),
+    (u"ɾ", u"r"), (u"j", u"y"), (u"w", u"w"), (u"ʋ", u"w"),
+    (u"c", u"C"),
+    # /h/ is a phoneme here rather than a rule of ours
+    (u"x", u"k"), (u"ɣ", u"g"), (u"q", u"k"),
+    (u"h", u"h"), (u"ɦ", u"h"), (u"ʔ", u""),
+]
 
 # Aspiration, and the diacritic for a breathy voiced stop. Urdu has a
 # four-way stop series where Italian has two, and the aspirated and
@@ -124,12 +159,25 @@ def normalise(w):
 
 
 
+CHASSIS = os.environ.get("EVV_URDU_CHASSIS", "itit")
+
+
+def table():
+    return PAIRS_EN if CHASSIS == "enus" else PAIRS
+
+
+def aspirate_of():
+    """What breath after a stop is written as. English has /h/; Italian has
+    the L this branch took over for it."""
+    return u"h" if CHASSIS == "enus" else u"L"
+
+
 def word(w):
     """One word of IPA as one pronunciation annotation."""
     w = u"".join(c for c in w if c not in DROP)
     out, i = [], 0
     while i < len(w):
-        for src, dst in PAIRS:
+        for src, dst in table():
             if w.startswith(src, i):
                 nasal = src in NASAL_ONE
                 i += len(src)
@@ -150,7 +198,7 @@ def word(w):
                 while i < len(w) and w[i] in ASPIRATE:
                     i += 1
                     if dst and dst[-1] not in VOWELS:
-                        dst = dst + u"L"
+                        dst = dst + aspirate_of()
                 out.append(dst)
                 break
         else:
@@ -161,6 +209,19 @@ def word(w):
     # knows Urdu's rule. tools/urdu/stress.py works it out of the shape
     # of the syllables, which is what Urdu stress actually follows.
     return u"`[" + stress.mark(body) + u"]" if body else u""
+
+
+# Words the lexicon gets wrong for our purposes, and what they should be.
+#
+# Wiktionary transcribes a word the way it is often said rather than the way
+# it is taught: ہے is given as a close eː where Urdu says an open ɛː, and it
+# is the commonest word in the language, so it is worth saying properly. Each
+# of these was heard and then changed, not assumed.
+OVERRIDE = {
+    u"ہے": u"ɦɛː",          # ہے, an open e
+    u"ہیں": u"ɦɛː̃",  # ہیں, the same nasalised
+    u"ہےں": u"ɦɛː̃",
+}
 
 
 def lexicon():
@@ -221,7 +282,8 @@ if __name__ == "__main__":
     said = []
     for w in words:
         bare = normalise(w.strip(PUNCT))
-        ipa = lex.get(bare) or guessed.get(w) or guessed.get(bare)
+        ipa = (OVERRIDE.get(bare) or lex.get(bare)
+               or guessed.get(w) or guessed.get(bare))
         if ipa:
             # Wiktionary transcribes some words the way they are often said
             # rather than the way they are written: ہے is given as eː with no

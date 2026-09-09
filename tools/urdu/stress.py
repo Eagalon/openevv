@@ -15,7 +15,11 @@ word instead -- which is what this did before -- is most of what made the
 result sound like somebody reading Urdu rather than speaking it.
 """
 
-VOWELS = u"aeiouEc"
+# Every vowel either chassis writes. The English one has I and U for the lax
+# pair and A and Y besides, and a vowel this does not know is invisible to
+# the syllabifier -- dIl came out with no stress at all, because it looked
+# like a word with no vowel in it.
+VOWELS = u"aeiouEcIUAYW@"
 
 
 def syllables(ph):
