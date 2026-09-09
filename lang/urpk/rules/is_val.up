@@ -119,3 +119,33 @@ rule urdu_ph_D takes 1 from is_val.obj
   set global half 2858 to 55
   match
 end
+
+# /x/, which Urdu writes خ and Italian has not got at all.
+#
+# It was being said as a /k/, which is a stop where Urdu has a fricative:
+# خدا، خبر، خیال، خوش are ordinary words and every one of them was starting
+# with the wrong manner. Measured over the frequency list, /x/ is one per cent
+# of every sound in ordinary Urdu -- small until you notice that ڑ, which took
+# a locus rule of its own, is one tenth of that.
+#
+# Written as urdu_ph_h is, which is to say as ital_ph_s is: the two frication
+# amplitudes that are the noise, and voiceless in the way IBM's own rules do
+# it, which is by leaving out the store ital_ph_z makes -- 2926. Where it
+# differs from /h/ is that /h/ has no place and this one has: the breath is
+# forced through a velar constriction rather than an open tract, so it calls
+# ital_velar_Fv and takes the shape /k/ is made at. That is the whole of the
+# difference between them and it is the right one.
+#
+# It is reached by taking over v. Urdu's و is a /w/ and its ਵ-like /v/ is the
+# same phoneme -- the language does not contrast the two -- so v was measured
+# at nought per cent of ordinary Urdu before it was taken. It is also the only
+# free phoneme that was reachable: D and T are declared and are called from
+# nowhere in ital_con_vals, so a code put there would make no sound at all.
+rule urdu_ph_x takes 1 from is_val.obj
+  call ZZfence_null
+  set global half 2918 to 400
+  set global half 2922 to 400
+  call ital_velar_Fv
+  set global half 2754 to 60
+  match
+end

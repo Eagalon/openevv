@@ -51,15 +51,27 @@ PAIRS = [
     # with a ڈ; it is a dozen borrowed words and the dentals are everywhere.
     (u"ɽ", u"R"), (u"ʈ", u"N"), (u"ɖ", u"Z"), (u"ɳ", u"n"),
     (u"ʃ", u"S"), (u"ʒ", u"z"), (u"ŋ", u"G"),
-    # Urdu's ɪ and ʊ are lax where Italian's i and u are not, so the lax pair
-    # go to the open vowels: dil stays dil instead of stretching into deel.
+    # Urdu's ɪ and ʊ go to i and u, short, and not to e and o.
+    #
+    # They went to e and o for most of this branch's life, and that was a
+    # workaround for a problem that no longer exists. Before vowel length was
+    # written, a single i was the only i there was and Italian's is tense, so
+    # دل came out deel; e was nearer. Length arrived and the workaround stayed,
+    # and it was doing real damage: دل said del, ملک molk, دن den, تم tom
+    # and اردو ordu -- the name of the language, said wrong, in every
+    # sentence about it.
+    #
+    # Measured before changing it: dil is 750 ms against del's 763, and din
+    # 740 against deen's 778. A single i is not longer than an e, so the
+    # reason for the substitution was not there either. Now ɪ and iː differ
+    # by length alone, which is exactly the contrast Urdu makes.
     # The lexicon writes a nasal vowel as one character rather than a vowel
     # and a combining tilde, so stripping the tilde never reaches these and
     # the whole vowel went missing: ہوں came out as an h and nothing
     # after it. The module has no nasal vowel, so they say the oral one.
     (u"ũ", u"u"), (u"ĩ", u"i"), (u"ã", u"a"), (u"õ", u"o"),
     (u"ẽ", u"e"), (u"ṽ", u"u"), (u"ẻ", u"e"),
-    (u"ɪ", u"e"), (u"ʊ", u"o"), (u"ə", u"a"), (u"ʌ", u"a"),
+    (u"ɪ", u"i"), (u"ʊ", u"u"), (u"ə", u"a"), (u"ʌ", u"a"),
     (u"æ", u"E"), (u"ɛ", u"E"), (u"ɔ", u"c"),
     (u"ɑ", u"a"), (u"a", u"a"), (u"e", u"e"), (u"i", u"i"),
     (u"o", u"o"), (u"u", u"u"),
@@ -72,7 +84,13 @@ PAIRS = [
     # naming one it does not know is spoken aloud rather than refused.
     # /h/ is L, which is Italian's gli taken over for it: urdu_ph_h in
     # is_val.up is what that code speaks now.
-    (u"x", u"k"), (u"ɣ", u"g"), (u"q", u"k"), (u"h", u"L"), (u"ɦ", u"L"),
+    # خ is v, which is Italian's /v/ taken over for it: urdu_ph_x in
+    # is_val.up speaks a velar fricative there now. It was a /k/ before,
+    # which is a stop where Urdu has a fricative. غ, its voiced pair,
+    # would want a second phoneme and there is not one: D and T are the
+    # only ones left and neither is reachable from ital_con_vals.
+    # ق stays a /k/ on purpose -- that is how most of Pakistan says it.
+    (u"x", u"v"), (u"ɣ", u"g"), (u"q", u"k"), (u"h", u"L"), (u"ɦ", u"L"),
     (u"ʔ", u""),
 ]
 

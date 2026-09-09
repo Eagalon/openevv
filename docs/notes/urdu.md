@@ -160,3 +160,51 @@ What took the time was where to put them. Rewriting `ital_ph_t` and `ital_ph_d` 
 The trade, stated plainly because it is a real loss. `N` was Italian's gn and `Z` its ʒ. Nothing in Urdu wants the first. The second is ژ, which Urdu writes in perhaps a dozen borrowed words, and it now says a ڈ; `0698` in the codepoints was moved to plain `z` so at least the letter path says something adjacent. The dentals appear in every other word and the sibilant does not, so this was not a close call.
 
 Measured rather than assumed: `taal` against `Naal` differs over 56% of frames and `daal` against `Zaal` over 55%, against 58% for `taal` against `daal` — the new contrast is as large as the one Italian already had between t and d, which is what it should be.
+
+## The lax vowels, and خ. 9 September 2026
+
+Measured before changing anything. Taking the frequency list as the weight and
+the lexicon as the truth, here is what share of every sound in ordinary Urdu
+each engine phoneme is carrying, and what collapses onto it:
+
+    a   22.33%   a 8.5%  ə 6.8%  ɑ 5.3%  ʌ 1.7%
+    e   10.75%   e 8.6%  ɪ 2.1%
+    k    9.55%   k 7.9%  x 1.0%  q 0.6%
+    o    4.75%   o 3.2%  ʊ 1.4%
+
+The second and fourth rows were a mistake of ours rather than a limit of the
+chassis. ɪ went to e and ʊ to o, and that was a workaround for a problem that
+had been fixed months earlier: before vowel length existed a single i was the
+only i there was, Italian's is tense, and دل came out deel, so e was nearer.
+Length arrived, doubling gave iː its own spelling, and the workaround stayed.
+
+What it was costing, in the six commonest words that have one:
+
+    دل    del      dil
+    دن    den      din
+    تم    tom      tum
+    ملک   molk     mulk
+    کتاب  ketaab   kitaab
+    اردو  ordu     urduu
+
+The name of the language, said wrong, in every sentence about it. Changed to
+i and u, so ɪ and iː now differ by length alone, which is the contrast Urdu
+actually makes. Measured first, because the old comment claimed a length
+problem: dil is 750 ms against del's 763 and din 740 against deen's 778. A
+single i is not longer than an e and never was.
+
+خ was a /k/, which is a stop where Urdu has a fricative, and it is one per
+cent of ordinary Urdu -- ten times what ڑ is, and ڑ got a locus of its own.
+`urdu_ph_x' is urdu_ph_h with a place: the same two frication amplitudes and
+the same voicelessness, but calling ital_velar_Fv, so the breath is forced
+through the constriction /k/ is made at rather than an open tract. خدا against
+کدا differs over 55% of frames.
+
+It took v, and v is the last of them. Urdu does not contrast v with w -- و is
+both -- so v measured at nought per cent before it was taken. D and T are the
+only phonemes still unassigned and neither is reachable: ital_con_vals calls
+them from nowhere, so a code put there makes no sound at all. Adding a branch
+to that dispatch is what a further sound would cost, and it is the reason غ is
+still a /g/.
+
+ق stays a /k/ on purpose. Most of Pakistan says it that way.
