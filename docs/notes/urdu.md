@@ -93,3 +93,23 @@ It cannot yet be given Urdu words, and the reason is worth writing down rather t
 - **And a retaken action keeps its length.** It *can only be given a record of the length it already lays down*, so a five-phone Urdu word needs a five-phone Italian one. Of the 25, the lengths available are 1, 2, 6 and 7 -- there is not a single free slot of 3, 4 or 5 phones, which is most of the vocabulary worth adding.
 
 So the dictionary is not the next move on this chassis. What is left is either a module whose dictionary rule states its lengths, or the vowels coming from somewhere other than a lexicon.
+
+## The vowels, from espeak
+
+The dictionary being shut on this chassis left the short vowels with nowhere to come from, and they are the largest thing wrong: کتاب read off its spelling is `ktab`.
+
+espeak's Urdu knows them. Asked, it answers `kɪtˈaːb`, `səlˈaːm`, `mˈʊlk`, `dˈɪl`. So `tools/urdu/vowels.py` takes that answer and writes it back out as letters `lang/urpk` already says -- `kitab`, `salam`, `mulk`, `dil` -- and the engine speaks those. `tools/urdu/say.sh` is the two of them and the engine in a line.
+
+**Nothing in the engine changed and nothing of espeak's is linked.** espeak is asked, as a separate program, and only its answer is used. The five sounds with no Latin letter in the module come back as the Urdu letter instead -- ش, چ, ج, ٹ, ڈ, ڑ, ں -- because the codepoints table already sends those to the right byte and the result stays valid UTF-8. Everything the module has not got yet falls back to the nearest it has, the same way the codepoints table does, and the diacritics for length, stress, dental, aspirated, breathy and nasal are dropped because not one of those is a distinction it can make.
+
+A whole sentence, which is the fairest way to hear it. میرا نام احمد ہے؛ میں پاکستان سے تعلق رکھتا ہوں comes out as
+
+    mera nam ehmad se me pakistan se taluk rakta o
+
+which is the sentence, and says where the next work is.
+
+**/h/ is now the loudest thing missing.** ہ and ح say nothing at all, so ہے is `e` and ہوں is `o`, and Urdu leans on that letter constantly. Italian has no /h/ to borrow and German has one; it is the first sound worth adding rather than borrowing.
+
+After that, in what it costs a listener: the nasal vowels, which ں cannot carry on its own, so میں is `me`; and the aspirates, so رکھتا is `rakta`.
+
+What this is not. It is a step outside the engine, so nothing reaches it through SAPI or a screen reader: a caller hands text to the engine, not to a script. Making it reach one means either the rules living in the module or the SAPI layer asking espeak the same question. And espeak's own Urdu is `status testing`: شکریہ comes back as the *names* of its letters, `ʃˈiːn kˈaːf rˈeː ...`, which is espeak reading a word it does not know letter by letter.
