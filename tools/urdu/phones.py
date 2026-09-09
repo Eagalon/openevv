@@ -72,7 +72,7 @@ PAIRS = [
 # module cannot make yet. Length is deliberately absent -- it is carried
 # below, because Urdu's long vowels are half its vowels and dropping the mark
 # made every one of them short.
-DROP = u"\u02b0\u0325\u032a\u0324\u0330\u031f\u0361\u02de\u02c8\u02cc"
+DROP = u"\u0325\u032a\u0330\u031f\u0361\u02de\u02c8\u02cc"
 LONG = u"\u02d0"
 VOWELS = u"aeiouEc"
 
@@ -83,6 +83,16 @@ VOWELS = u"aeiouEc"
 # out mEE, with the nasality simply gone.
 NASAL_ONE = u"ũĩãõẽṽẻ"
 NASAL_MARK = u"̃"
+
+# Aspiration, and the diacritic for a breathy voiced stop. Urdu has a
+# four-way stop series where Italian has two, and the aspirated and
+# breathy halves of it were being dropped outright: رکھتا came out rakta.
+# Neither is a phoneme here, but /h/ is one now, and a stop followed by
+# breath is what an aspirate is -- so the mark becomes an L after the
+# consonant. The breathy pair are voiced through the breath rather than
+# after it, which this cannot say; they get the same treatment, which is
+# nearer than nothing and not right.
+ASPIRATE = u"\u02b0\u0324"
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LEXICON = os.path.join(ROOT, "references", "lexicons", "urd_arab_broad.tsv")
@@ -134,6 +144,11 @@ def word(w):
                     i += 1
                 if nasal and dst and dst[-1] in VOWELS:
                     dst = dst + u"n"
+                # a stop with breath after it is what an aspirate is
+                while i < len(w) and w[i] in ASPIRATE:
+                    i += 1
+                    if dst and dst[-1] not in VOWELS:
+                        dst = dst + u"L"
                 out.append(dst)
                 break
         else:
