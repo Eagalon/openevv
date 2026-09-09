@@ -128,3 +128,23 @@ What is known rather than guessed:
 Samples 30 to 33 are the same text through both, and the question is only answerable by ear.
 
 A warning from the Polish note worth keeping whichever way it goes: a rule cannot answer through `get_parm_ptr`, and four separate experiments there appeared to move the stress and were all no-ops. When a change to a rule seems to work, hold it against a rule whose whole body is `match`, not only against the rule it replaced.
+
+## The chassis question, answered: Italian stays
+
+Heard side by side, the split is clean and it is not the one a table of features predicts.
+
+**Italian has the better sounds.** کتاب is better on Italian than on English, and دل is wrong on English because English has not got the sounds -- its d is alveolar where Urdu's is dental, and that is audible in a word that short. Those are exactly the two things Italian was chosen for.
+
+**English has the better inflection.** It does not have the high tone Italian speaks with. But its pronunciation is an English speaker's: the vowels are read the English way, which is the reduction Italian does not do.
+
+So the chassis is right and the prosody is what is wrong, which is a better problem to have: the sounds are the hard part and the contour is a setting. Switching would have traded a fixable contour for unfixable vowels.
+
+### What the high tone is, so far
+
+Not the voice preset. `Voice1` is `0 50 65 30 0 0 50 92` in US English, in Italian and in Urdu -- the same eight numbers -- so nothing about the voice differs between the two the ear compared.
+
+That leaves the contour itself. Italian's own intonation is six rules in `lang/urpk/rules/it_inton.dr`: `adjust_ital_inton`, `adjust_ital_accents`, `get_ital_nuclear_accent`, `adjust_ital_word_stress`, `ital_specific_word_cases` and `handle_destressed_verbs`. Two of them, `adjust_ital_accents` and `get_ital_nuclear_accent`, are called from `u_integ.dr` and are one line each to bypass, which is the same one-line change the retroflex needed and is the experiment to run next.
+
+Two things tried first, both a setting rather than a rule: the pitch fluctuation cut from 30 to 10 in the preset, which flattens the contour without touching a rule, and the baseline pitch dropped from 65 to 50. The fluctuation change is in `urpk.settings` provisionally and comes straight back out if the ear says it is not the thing.
+
+**Annotations are not on by default and this cost a wrong answer.** Speaking `` `vf10 `` in front of the text made the sentence two seconds longer, which is the engine reading the annotation out as words rather than applying it. Anything set that way has to be set in the preset or through the interface instead.
