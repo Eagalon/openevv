@@ -61,6 +61,14 @@ end
 # That one word is the whole difference between the two in IBM's own rules,
 # and it is what makes this breath rather than a buzz.
 #
+# It calls no locus rule, which is the point rather than an omission. /h/ has
+# no place of its own: the tract is already in the shape of the vowel beside
+# it and the breath passes through that shape. Setting a fixed locus made the
+# formants jump to the middle of the mouth and back -- ہوں, which is /h/ then
+# a back vowel, lurched audibly on the way in. Leaving them alone lets the
+# neighbour's shape stand, which is what actually happens in a mouth.
+# urdu_glottal_Fv is left above, unused, as the thing that was tried.
+#
 # It is reached by taking over L, Italian's gli, which no Urdu word wants.
 # The call to it in ital_con_vals points here instead, and L's own record now
 # says a voiceless fricative rather than a lateral.
@@ -68,7 +76,6 @@ rule urdu_ph_h takes 1 from is_val.obj
   call ZZfence_null
   set global half 2918 to 300
   set global half 2922 to 300
-  call urdu_glottal_Fv
   set global half 2754 to 60
   match
 end
