@@ -147,6 +147,12 @@ ASPIRATE = u"\u02b0\u0324"
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LEXICON = os.path.join(ROOT, "references", "lexicons", "urd_arab_broad.tsv")
+# What espeak says, written down once by tools/urdu/lexbuild.py so that
+# nothing has to ask it again. It is read after WikiPron and before espeak
+# itself: a transcription a person made beats a rule, and a rule written
+# down beats one that needs a program on the machine to run it.
+ESPEAK_LEXICON = os.path.join(ROOT, "references", "lexicons",
+                              "urd_espeak.tsv")
 PUNCT = u"\u060c\u061f\u06d4.,!?;:\"'()"
 
 # Urdu letters that arrive as their Arabic or Persian look-alikes, because
@@ -265,39 +271,84 @@ OVERRIDE = {
 }
 
 
-def lexicon():
-    """Every word the lexicon knows, and the first pronunciation it gives.
+def read_tsv(path, into):
+    """A word and its IPA to a line. The first pronunciation wins.
 
     Wiktionary lists more than one for some words -- a formal reading and an
     everyday one, or two dialects -- and the first is taken, which is a
-    choice rather than an answer.
+    choice rather than an answer. The same rule serves for reading a second
+    file over the top of the first: what is already there stays.
     """
-    out = {}
     try:
-        f = io.open(LEXICON, encoding="utf-8")
+        f = io.open(path, encoding="utf-8")
     except IOError:
-        return out
+        return into
     for line in f:
-        if "\t" not in line:
+        if line.startswith("#") or "\t" not in line:
             continue
         w, p = line.rstrip("\n").split("\t", 1)
-        out.setdefault(w, p.replace(" ", ""))
-    return out
+        into.setdefault(w, p.replace(" ", ""))
+    f.close()
+    return into
+
+
+def lexicon():
+    """Every word anything in the tree knows how to say.
+
+    Two files, in the order they are believed. WikiPron first, which is
+    Wiktionary and so is people writing down what a word sounds like.
+    espeak's second, which is its letter-to-sound rules and its own Urdu
+    dictionary, run once by tools/urdu/lexbuild.py and written down: ten
+    thousand words of it against WikiPron's six.
+
+    Reading the second is what makes espeak optional at run time. It used to
+    be asked for every word the first had not got, so a machine without
+    espeak on it dropped those words out of the sentence and said nothing
+    about having done so -- and a machine with espeak lost the lot whenever
+    the batch did not come back word for word.
+    """
+    return read_tsv(ESPEAK_LEXICON, read_tsv(LEXICON, {}))
+
+
+def _ask(espeak, words):
+    """One batch, or None if espeak did not answer word for word."""
+    try:
+        r = subprocess.run([espeak, "-v", "ur", "-q", "--ipa"],
+                           input=u"\n".join(words), capture_output=True,
+                           text=True, encoding="utf-8")
+    except OSError:
+        return None
+    said = re.sub(r"\((en|ur)\)", u" ", r.stdout).split()
+    return said if len(said) == len(words) else None
 
 
 def from_espeak(words):
-    """What espeak says, for the words the lexicon has not got."""
+    """What espeak says, for the words neither lexicon has got.
+
+    Asked in batches and, when a batch does not line up, one word at a time.
+    It used to be one call for the whole list, its answer used only if
+    exactly as many words came back as went in -- and espeak does not always
+    oblige: it splits a word, joins two, or says nothing for one it cannot
+    read. Three hundred words went in and nothing came back, and every one of
+    them was then dropped from the sentence with nothing said about it.
+    Falling back to one at a time costs a moment on the few words that need
+    it and loses none of them.
+    """
     if not words:
         return {}
     espeak = os.environ.get("ESPEAK", "espeak-ng")
-    try:
-        r = subprocess.run([espeak, "-v", "ur", "-q", "--ipa"],
-                           input=u" ".join(words), capture_output=True,
-                           text=True, encoding="utf-8")
-    except OSError:
-        return {}
-    said = re.sub(r"\((en|ur)\)", " ", r.stdout).split()
-    return dict(zip(words, said)) if len(said) == len(words) else {}
+    got, step = {}, 100
+    for i in range(0, len(words), step):
+        batch = words[i:i + step]
+        said = _ask(espeak, batch)
+        if said is None:
+            for w in batch:
+                one = _ask(espeak, [w])
+                if one:
+                    got[w] = one[0]
+        else:
+            got.update(zip(batch, said))
+    return got
 
 
 if __name__ == "__main__":

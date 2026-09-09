@@ -138,7 +138,8 @@ static const struct {
     { 0x040000, L"407"  },   /* German                 de-DE */
     { 0x050000, L"410"  },   /* Italian                it-IT */
     { 0x080000, L"411"  },   /* Japanese               ja-JP */
-    { 0x110000, L"415"  }    /* Polish                 pl-PL */
+    { 0x110000, L"415"  },   /* Polish                 pl-PL */
+    { 0x120000, L"420"  }    /* Urdu                   ur-PK */
 };
 
 static const wchar_t *lcid_of(int32_t id)

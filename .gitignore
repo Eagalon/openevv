@@ -38,3 +38,12 @@ lang/*/delta_rules_*.h
 # The default output name of cli/probe.c and reference/speak.c, so it
 # appears in the root whenever either is run without one.
 speak.wav
+
+# The synthesisers cloned into references/ for reading. Each is somebody
+# else's repository and several are large; references/README.md says what
+# each is and where it came from, which is the part worth keeping. The data
+# the Urdu frontend actually reads -- references/lexicons and
+# references/wordlists -- is small, is loaded at run time and is tracked.
+references/*/
+!references/lexicons/
+!references/wordlists/
