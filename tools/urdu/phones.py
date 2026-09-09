@@ -106,6 +106,12 @@ PAIRS_EN = [
     # ɽ takes the retroflex r English already has
     (u"ɽ", u"R"), (u"ʈ", u"t"), (u"ɖ", u"d"), (u"ɳ", u"n"),
     (u"ʃ", u"S"), (u"ʒ", u"Z"), (u"ŋ", u"G"),
+    # the nasal vowels, written as one character by the lexicon. These were
+    # in the Italian table and not this one, so ہوں came out as a bare h and
+    # کیوں as ky -- the whole vowel gone, not just its nasality.
+    (u"ũ", u"U"), (u"ĩ", u"I"), (u"ã", u"a"),
+    (u"õ", u"o"), (u"ẽ", u"e"), (u"ṽ", u"U"),
+    (u"ẻ", u"e"),
     # the lax pair, which is the whole reason this is worth trying
     (u"ɪ", u"I"), (u"ʊ", u"U"),
     (u"ə", u"a"), (u"ʌ", u"a"),
@@ -114,8 +120,11 @@ PAIRS_EN = [
     (u"o", u"o"), (u"u", u"u"),
     (u"b", u"b"), (u"p", u"p"), (u"t", u"t"), (u"d", u"d"), (u"k", u"k"),
     (u"ɡ", u"g"), (u"g", u"g"), (u"f", u"f"), (u"v", u"v"), (u"s", u"s"),
-    (u"z", u"z"), (u"m", u"m"), (u"n", u"n"), (u"l", u"l"), (u"r", u"r"),
-    (u"ɾ", u"r"), (u"j", u"y"), (u"w", u"w"), (u"ʋ", u"w"),
+    (u"z", u"z"), (u"m", u"m"), (u"n", u"n"), (u"l", u"l"), (u"r", u"F"),
+    # Urdu's ر is a tap, and F is English's own -- the flap in the middle of
+    # butter, at the alveolar locus, rather than the r of red which is a
+    # retroflex approximant and belongs to ڑ.
+    (u"ɾ", u"F"), (u"j", u"y"), (u"w", u"w"), (u"ʋ", u"w"),
     (u"c", u"C"),
     # /h/ is a phoneme here rather than a rule of ours
     (u"x", u"k"), (u"ɣ", u"g"), (u"q", u"k"),
@@ -274,6 +283,11 @@ if __name__ == "__main__":
         print(u" ".join(x for x in (word(w) for w in text.split()) if x))
         sys.exit(0)
 
+    # A line beginning with a hash is a note in the file rather than
+    # something to say: the test texts are sectioned that way.
+    keep = [L for L in text.split(u"\n")
+            if not L.lstrip().startswith(u"#")]
+    text = u"\n".join(keep)
     words = text.split()
     lex = lexicon()
     missing = [w for w in words if normalise(w.strip(PUNCT)) not in lex]
