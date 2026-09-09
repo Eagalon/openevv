@@ -42,10 +42,14 @@ PAIRS = [
     (u"t͡ʃ", u"C"), (u"d͡ʒ", u"J"), (u"tʃ", u"C"), (u"dʒ", u"J"),
     (u"ɟʝ", u"J"), (u"cç", u"C"),
     (u"aɪ", u"ay"), (u"aʊ", u"aw"),
-    # the retroflexes. R is the flap and has a sound of its own; T and D are
-    # declared retroflex and have none yet, so they say the dental for now.
-    (u"ɽ", u"R"), (u"ʈ", u"t"), (u"ɖ", u"d"), (u"ɳ", u"n"),
-    (u"ʃ", u"S"), (u"ʒ", u"Z"), (u"ŋ", u"G"),
+    # The retroflexes, all three of which now have a sound of their own and
+    # share one locus, urdu_retroflex_Fv: they differ in manner, not place.
+    # R is the flap; the two stops are N and Z, Italian's gn and its ʒ, taken
+    # over because no Urdu word wants either and there was nowhere else to
+    # put a phoneme -- see is_val.up. That trade costs ژ, which is now said
+    # with a ڈ; it is a dozen borrowed words and the dentals are everywhere.
+    (u"ɽ", u"R"), (u"ʈ", u"N"), (u"ɖ", u"Z"), (u"ɳ", u"n"),
+    (u"ʃ", u"S"), (u"ʒ", u"z"), (u"ŋ", u"G"),
     # Urdu's ɪ and ʊ are lax where Italian's i and u are not, so the lax pair
     # go to the open vowels: dil stays dil instead of stretching into deel.
     # The lexicon writes a nasal vowel as one character rather than a vowel

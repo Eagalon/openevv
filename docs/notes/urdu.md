@@ -148,3 +148,15 @@ That leaves the contour itself. Italian's own intonation is six rules in `lang/u
 Two things tried first, both a setting rather than a rule: the pitch fluctuation cut from 30 to 10 in the preset, which flattens the contour without touching a rule, and the baseline pitch dropped from 65 to 50. The fluctuation change is in `urpk.settings` provisionally and comes straight back out if the ear says it is not the thing.
 
 **Annotations are not on by default and this cost a wrong answer.** Speaking `` `vf10 `` in front of the text made the sentence two seconds longer, which is the engine reading the annotation out as words rather than applying it. Anything set that way has to be set in the preset or through the interface instead.
+
+## The retroflex stops, 9 September 2026
+
+ٹ and ڈ now sound, and تال/ٹال and دال/ڈال are two words apiece rather than one said twice.
+
+They were the last structural gap. The three retroflexes of Urdu — ڑ, ٹ, ڈ — now share one locus, `urdu_retroflex_Fv`, f2 1750 and f3 2100, which is right: they differ in manner and not in place, and the third formant coming down to meet the second is the whole cue.
+
+What took the time was where to put them. Rewriting `ital_ph_t` and `ital_ph_d` was never on: 331 and 572 lines, both calling two loci, and nearly all of it context — which shape to take before which neighbour. So the pattern that worked for ڑ and for /h/ was used again, which is to take over a sound Urdu has not got. `urdu_ph_T` and `urdu_ph_D` are written from the part of IBM's rules that makes the sound and nothing else: the two frication amplitudes that are the burst, the locus, the closing duration, and for the voiced one the store `ital_ph_z` makes and `ital_ph_s` does not, 2926.
+
+The trade, stated plainly because it is a real loss. `N` was Italian's gn and `Z` its ʒ. Nothing in Urdu wants the first. The second is ژ, which Urdu writes in perhaps a dozen borrowed words, and it now says a ڈ; `0698` in the codepoints was moved to plain `z` so at least the letter path says something adjacent. The dentals appear in every other word and the sibilant does not, so this was not a close call.
+
+Measured rather than assumed: `taal` against `Naal` differs over 56% of frames and `daal` against `Zaal` over 55%, against 58% for `taal` against `daal` — the new contrast is as large as the one Italian already had between t and d, which is what it should be.

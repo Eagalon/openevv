@@ -51,7 +51,7 @@
 0686 88   # che -- its own byte: c is k before a in Italian
 0688 83   # ddal, retroflex -- its own byte, d until D sounds
 0691 84   # rre -- its own byte, the retroflex flap
-0698 8d   # zhe -- its own byte, the voiced one of shin
+0698 7a   # zhe -- z. Its own byte went to the retroflex D: see is_val.up
 06a9 6b   # kaf
 06af 67   # gaf
 06ba 87   # nun ghunna -- its own byte, no nasal vowels yet

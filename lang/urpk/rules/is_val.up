@@ -79,3 +79,43 @@ rule urdu_ph_h takes 1 from is_val.obj
   set global half 2754 to 60
   match
 end
+
+# The retroflex stops, ٹ and ڈ, which Italian has not got and Urdu contrasts
+# against its dentals in ordinary words: تال against ٹال, دال against ڈال.
+#
+# Written from ital_ph_t and ital_ph_d rather than invented. Those are three
+# hundred and five hundred lines and most of it is context -- which locus to
+# take before which neighbour -- so what is kept here is the part that makes
+# the sound: the two frication amplitudes that are the burst, the locus, and
+# the closing duration. The voiced one adds the store the voiceless one does
+# not make, 2926, which is the same one word that separates ital_ph_s from
+# ital_ph_z.
+#
+# The locus is urdu_retroflex_Fv, already written for ڑ: f2 1750 and f3 2100,
+# a third formant brought down to meet the second, which is what a retroflex
+# is. So the three retroflexes of Urdu now share one statement of where the
+# tongue is, which is right -- they differ in manner and not in place.
+#
+# They are reached by taking over two Italian sounds no Urdu word wants: N,
+# the gn of bagno, and Z, which Urdu writes as ژ and uses in perhaps a dozen
+# borrowed words. That is the trade and it is worth stating: ژالہ will be
+# said with a ڈ until there is somewhere else to put it.
+rule urdu_ph_T takes 1 from is_val.obj
+  call ZZfence_null
+  set global half 2918 to 300
+  set global half 2922 to 300
+  call urdu_retroflex_Fv
+  set global half 2918 to 500
+  set global half 2858 to 55
+  match
+end
+
+rule urdu_ph_D takes 1 from is_val.obj
+  call ZZfence_null
+  set global half 2918 to 200
+  set global half 2922 to 200
+  call urdu_retroflex_Fv
+  set global half 2926 to 1000
+  set global half 2858 to 55
+  match
+end

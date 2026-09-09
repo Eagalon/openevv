@@ -13723,7 +13723,7 @@ label L19 was $X22$90674
   push reg r6
   call ZZstarttest25 arity 1 depth 1
   push reg r6
-  call ital_ph_Z arity 1 depth 2
+  call urdu_ph_D arity 1 depth 2
   jump to L1
 label L20 was $X24$90678
   push reg r6
@@ -13780,7 +13780,7 @@ label L22 was $X28$90686
   push reg r6
   call ZZstarttest31 arity 1 depth 1
   push reg r6
-  call ital_ph_N arity 1 depth 2
+  call urdu_ph_T arity 1 depth 2
   jump to L1
 label L23 was $X30$90690
   push reg r6
